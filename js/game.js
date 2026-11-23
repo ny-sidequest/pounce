@@ -1,5 +1,6 @@
 // Night screen controller: one night's chase, from the first clue to the end of the night.
-// Story: the cat creeps across the rooftops after a masked thief. Clues bring it closer; pouncing is the leap.
+// Layout: top bar, HUD, the scene (a camera on a wide world), the trail strip of answers, the question panel.
+// Hero moments (the catch, the fall) take over the screen: the card slides away and the scene grows.
 import {
   QUESTION_SECONDS, BREAK_SECONDS, POUNCE_SECONDS, MAX_ATTEMPTS, QUESTIONS_PER_PUZZLE,
   answerGuess, judgePounce, pounceValue, totals, titleFor, formatNumber as fmt,
@@ -9,7 +10,8 @@ import {
 } from './engine.js';
 import { createScene, escapeHTML } from './scene.js';
 import { rainHTML } from './pixel.js';
-import { sparkBurst, floatPoints, reducedMotion, toast } from './fx.js';
+import { sparkBurst, floatPoints, reducedMotion } from './fx.js';
+import { fitText } from './fit.js';
 import { sfx, isSoundOn, setSound } from './audio.js';
 import { saveProgress } from './store.js';
 
@@ -34,6 +36,7 @@ function countdown(seconds, onTick, onDone) {
 
 const strand = (id) => `<div class="strand" id="${id}" style="--p:1" aria-hidden="true"><div class="strand-fill"></div></div>`;
 const setStrand = (el, frac, urgent) => { el.style.setProperty('--p', Math.max(0, Math.min(1, frac)).toFixed(4)); el.classList.toggle('urgent', urgent); };
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export function mountGame(root, puzzle, initial, { onHome, onResults }) {
   let p = initial;
@@ -49,7 +52,7 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
 
   root.innerHTML = `
   ${rainHTML()}
-  <section class="screen game">
+  <section class="screen game" id="game">
     <div class="topline">
       <button class="icon-btn" id="homeBtn" aria-label="Back to home">‹</button>
       <h1 class="pz-name">NIGHT #${puzzle.id}</h1>
@@ -60,12 +63,18 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
       <ol class="pips" id="pips" aria-label="Progress"></ol>
       <div class="hud-box hud-score"><span class="lab">SCORE</span><span class="val" id="score">0</span></div>
     </header>
-    <div id="sceneHost" style="display:contents"></div>
-    <div class="panel" id="panel" aria-live="polite"></div>
+    <div id="sceneHost" class="scene-host"></div>
+    <div class="card" id="card">
+      <ol class="trail" id="trail" aria-label="Your answers so far">
+        ${Array.from({ length: QUESTIONS_PER_PUZZLE }, (_, i) => `<li class="chip" data-i="${i}"><span class="cn">${i + 1}</span><span class="ca fit"><span class="sr-only">Clue ${i + 1}: not answered yet</span></span></li>`).join('')}
+      </ol>
+      <div class="panel" id="panel" aria-live="polite"></div>
+    </div>
     <div class="sr-only" id="live" aria-live="polite"></div>
   </section>
   <dialog class="modal pounce-dlg" id="pounceDlg" aria-labelledby="pdTitle"></dialog>`;
 
+  const game = $(root, '#game');
   const panel = $(root, '#panel');
   const live = $(root, '#live');
   const pounceDlg = $(root, '#pounceDlg');
@@ -74,12 +83,38 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
   const save = () => saveProgress(p);
   const announce = (t) => { live.textContent = ''; setTimeout(() => (live.textContent = t), 30); };
   const stopTimer = () => { if (timer) { timer.stop(); timer = null; } };
-  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const chase = () => chaseState(p);
   const correctCount = () => p.results.filter((r) => r.status === 'correct').length;
   /** how many clues the cat has resolved since it fell, i.e. its steps along the street */
   const footStep = () => Math.max(0, p.results.length - (p.pounce.afterQ ?? 0));
 
+  /* ----------------------------------------------------- keyboard / hero layout */
+  let baseVV = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  function onViewport() {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    baseVV = Math.max(baseVV, vv.height);
+    game.classList.toggle('kbd', vv.height < baseVV * 0.8); // the on-screen keyboard is open: shrink the scene
+  }
+  window.visualViewport?.addEventListener('resize', onViewport);
+  const setHero = (on) => game.classList.toggle('hero', on);
+
+  /* ------------------------------------------------------------- trail strip */
+  const chips = () => [...game.querySelectorAll('.chip')];
+  function fillChip(i, answer, missed) {
+    const chip = chips()[i];
+    chip.classList.add(missed ? 'missed' : 'lit');
+    const a = chip.querySelector('.ca');
+    a.title = answer;
+    a.innerHTML = `<span class="sr-only">Clue ${i + 1}${missed ? ' (missed)' : ''}: </span>${escapeHTML(answer)}`;
+    fitText(a, { min: 12 });
+  }
+  function fitChips() { game.querySelectorAll('.chip.lit .ca, .chip.missed .ca').forEach((a) => fitText(a, { min: 12 })); }
+  new ResizeObserver(fitChips).observe($(root, '#trail'));
+  document.fonts?.ready.then(fitChips);
+  game.querySelectorAll('.chip').forEach((c) => c.addEventListener('click', () => { c.classList.toggle('open'); }));
+
+  /* ------------------------------------------------------------------- score / HUD */
   function updateScore(animate = true) {
     const el = $(root, '#score');
     const target = totals(p).total;
@@ -124,11 +159,11 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
   const basePose = () => (chase() === 'caught' ? 'proud' : canPounce(p) && (p.phase === 'break' || p.phase === 'final') ? 'wiggle' : 'crouch');
 
   /* -------------------------------------------------------- restore the world */
-  p.results.forEach((r, i) => scene.lightLamp(i, puzzle.clues[i].answer, r.status !== 'correct', false));
+  p.results.forEach((r, i) => { scene.lightLamp(i, r.status !== 'correct'); fillChip(i, puzzle.clues[i].answer, r.status !== 'correct'); });
   scene.setLight(correctCount());
   {
     const st = chase();
-    if (st === 'caught') scene.showCaught(puzzle.connect.answer);
+    if (st === 'caught') scene.showCaught();
     else if (st === 'on_foot') scene.showOnFoot(footStep());
     else if (st === 'got_away') { scene.setCatRoof(4); scene.setThief('gone'); }
     else scene.setCatRoof(5 - gapForState(p));
@@ -136,18 +171,18 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
   updateScore(false);
   updateHud();
 
-  /** After a clue resolves, the cat moves: a hop along the roofs, or a step along the street. */
+  /** After a clue resolves the cat moves: a hop along the roofs, a step along the street, or (clue 1) a reaction. */
   function moveCat() {
     const st = chase();
     if (st === 'chasing') {
       const idx = 5 - gapForState(p);
       if (idx !== scene.getRoof()) scene.hopTo(idx);
+      else scene.react(); // clue 1: still 5.0 m, but the cat tenses and the thief glances back
     } else if (st === 'on_foot') scene.walkTo(footStep());
   }
 
   /* ---------------------------------------------------------------- question */
   function showQuestion() {
-    panel.style.visibility = '';
     clearTimeout(skipTimer);
     p = p.phase === 'intro' ? startQuestion(p) : nextClue(p);
     save();
@@ -217,7 +252,8 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
     const r = p.results[i];
     const clue = puzzle.clues[i];
     const missed = status !== 'correct';
-    scene.lightLamp(i, clue.answer, missed); // missed: the lamp stays dark, but the answer is shown
+    scene.lightLamp(i, missed); // lanterns are pure light: amber if correct, dim if missed
+    fillChip(i, clue.answer, missed); // the answer goes in the trail strip, never in the scene
     scene.setLight(correctCount());
     moveCat();
     updateScore();
@@ -226,7 +262,8 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
       sfx.purr();
       const lr = scene.lampRect(i);
       sparkBurst(lr.left + lr.width / 2, lr.top + lr.height / 2, { count: 14, spread: 60 });
-      floatPoints(lr, `+${fmt(r.points)}`);
+      const sr = scene.sceneEl.getBoundingClientRect();
+      floatPoints(scene.catRect(), `+${fmt(r.points)}`, { left: sr.left, right: sr.right, top: sr.top, bottom: sr.bottom }); // from the cat, kept inside the scene
     } else sfx.nope();
     announce(missed ? `Missed. The answer was ${clue.answer}.` : `Correct. Plus ${r.points} points.`);
     showBreak();
@@ -239,13 +276,13 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
     const clue = puzzle.clues[i];
     return r.status === 'correct'
       ? `<div class="result-line"><span class="pts-pill">+${fmt(r.points)}</span><span>Correct · ${r.time.toFixed(1)}s</span></div>`
-      : `<div class="result-line"><span class="pts-pill miss">0</span><span>Missed · It was <b>${escapeHTML(clue.answer)}</b></span></div>`;
+      : `<div class="result-line"><span class="pts-pill miss">0</span><span>Missed · It was ${escapeHTML(clue.answer)}</span></div>`;
   }
 
   /** End of the night: Case closed, or It got away. */
   function showEnd() {
-    panel.style.visibility = '';
     stopTimer();
+    setHero(false);
     const caught = chase() === 'caught';
     panel.innerHTML = `<div class="break">${p.results.length ? resultLine() : ''}
       <h2 class="break-title">${caught ? 'Case closed.' : 'It got away... this time.'}</h2>
@@ -256,7 +293,6 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
   }
 
   function showBreak() {
-    panel.style.visibility = '';
     stopTimer();
     clearTimeout(skipTimer);
     const n = p.results.length;
@@ -313,7 +349,7 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
   async function letItGo() {
     p = skipFinal(p);
     save();
-    panel.style.visibility = 'hidden';
+    panel.innerHTML = `<div class="break"><h2 class="break-title">The thief slips into the night...</h2></div>`; // never an empty panel
     updateHud();
     await scene.runThief();
     if (!destroyed) showEnd();
@@ -405,34 +441,53 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
     const value = pounceValue(n);
     p = resolvePounce(p, { correct, guess });
     save();
-    panel.style.visibility = 'hidden'; // no stale buttons behind the leap
     closePounceDlg();
     updateScore();
+    setHero(true); // the question card slides away, the scene fills the screen
+    await wait(reducedMotion() ? 0 : 420);
+    if (destroyed) return;
     if (correct) await catchThief(value);
     else await fallShort(n, reason);
   }
 
-  /** Correct pounce: leap, land on the thief, the mask comes off. */
+  /** The catch: push in, leap, the mask flips off, a big name plate drops in. */
   async function catchThief(value) {
     const t = titleFor(p);
     sfx.mrrp();
-    await scene.leapCatch(puzzle.connect.answer);
+    await scene.leapCatch();
     if (destroyed) return;
     updateHud();
     const tr = scene.thiefRect();
-    sparkBurst(tr.left + tr.width / 2, tr.top + tr.height / 3, { count: 40, spread: 170 });
-    floatPoints(tr, `+${fmt(value)}`);
-    toast(`Caught from ${formatMeters(leapMeters(value))}! ${t.title}.`);
+    sparkBurst(tr.left + tr.width / 2, tr.top + tr.height / 3, { count: 44, spread: 190 });
     announce(`Caught from ${formatMeters(leapMeters(value))}. Plus ${value} points. ${t.title}. The thief was ${puzzle.connect.answer}.`);
-    await wait(reducedMotion() ? 300 : 1400);
+
+    const ov = scene.overlay();
+    ov.innerHTML = `
+      <div class="plate" role="status">
+        <p class="plate-kicker">THE THIEF WAS…</p>
+        <p class="plate-name fit">${escapeHTML(puzzle.connect.answer)}</p>
+        <p class="plate-pts">+${fmt(value)}</p>
+        <p class="plate-title">${escapeHTML(t.title)}</p>
+        <p class="plate-sub">Caught from ${formatMeters(leapMeters(value))}</p>
+        <p class="plate-tap">tap to continue</p>
+      </div>`;
+    fitText($(ov, '.plate-name'), { min: 16 });
+    await new Promise((resolve) => {
+      const done = () => { clearTimeout(tm); ov.removeEventListener('click', done); resolve(); };
+      const tm = setTimeout(done, 2600);
+      setTimeout(() => ov.addEventListener('click', done), 700);
+    });
+    ov.innerHTML = '';
     if (destroyed) return;
-    panel.style.visibility = '';
+    setHero(false);
+    scene.frame('caught', 400);
+    updateHud();
     if (p.phase === 'done') { showEnd(); return; }
-    // one-line note before the next clue
+    // one-line note before the next clue (at least 2.5 s, with a Got it button)
     panel.innerHTML = `<div class="break"><p class="heads-up">${HEADS_UP}</p><button class="btn btn-amber" id="huBtn">GOT IT ▸</button></div>`;
     const go = () => { clearTimeout(skipTimer); if (!destroyed && p.phase === 'break') showQuestion(); };
     $(panel, '#huBtn').addEventListener('click', go);
-    skipTimer = setTimeout(go, 3600);
+    skipTimer = setTimeout(go, 5000);
   }
 
   /** Wrong pounce or timeout: fall short, crash into the bins; the thief escapes. */
@@ -442,18 +497,20 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
     if (destroyed) return;
     updateHud();
     const prefix = reason === 'timeout' ? 'Out of time. ' : '';
-    toast('CLATTER! The thief got away.');
     announce(`CLATTER! ${prefix}You fell short at ${m1(leapMeters(pounceValue(n)))}. The thief got away.`);
-    panel.style.visibility = '';
-    panel.innerHTML = `<div class="break">
-      <h2 class="break-title">CLATTER! The thief got away.</h2>
-      <p class="break-sub">${prefix}You fell short at ${m1(leapMeters(pounceValue(n)))}. The mask stays on.</p>
-      <button class="btn btn-amber" id="climbBtn">Climb out →</button></div>`;
-    $(panel, '#climbBtn').addEventListener('click', async () => {
-      panel.style.visibility = 'hidden';
+    const ov = scene.overlay();
+    ov.innerHTML = `
+      <div class="plate plate--fall" role="status">
+        <p class="plate-kicker">CLATTER!</p>
+        <p class="plate-name">The thief got away.</p>
+        <p class="plate-sub">${prefix}You fell short at ${m1(leapMeters(pounceValue(n)))}. The mask stays on.</p>
+        <button class="btn btn-amber" id="climbBtn">Climb out →</button>
+      </div>`;
+    $(ov, '#climbBtn').addEventListener('click', async () => {
+      ov.innerHTML = '';
       await scene.walkTo(0, true); // the cat climbs out and follows on foot, down in the street
       if (destroyed) return;
-      panel.style.visibility = '';
+      setHero(false);
       if (p.phase === 'done') showEnd();
       else showQuestion();
     });
@@ -471,6 +528,7 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
     destroyed = true;
     stopTimer();
     clearTimeout(skipTimer);
+    window.visualViewport?.removeEventListener('resize', onViewport);
     scene.destroy();
     if (p.phase === 'question' || p.phase === 'pounce') { p = applyReload(p); save(); }
     document.querySelectorAll('.fx-layer, .float-points').forEach((n) => n.remove());

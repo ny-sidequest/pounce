@@ -42,6 +42,8 @@ const POSES = {
       ${shape([[3, 3, 9, 2], [2, 2, 2, 3], [0, 4, 4, 1], [13, 1, 5, 1]])}
       <g class="c-head">${shape([[12, 2, 5, 3], [12, 0, 1, 2], [16, 0, 1, 2]])}${eyes([[13, 2, 2, 2], [15, 2, 1, 2]])}</g>`
   },
+  // the cat has seen the thief glance back: eyes narrow, head drops into a lower crouch
+  narrow: { w: 16, h: 8, draw: () => crouchParts({ headT: 'translate(0 0.9)', eyeMarkup: `${rect(11, 4.5, 1.4, 0.5, C.amber)}${rect(13, 4.5, 1.4, 0.5, C.amber)}` }) },
   walk1: { w: 16, h: 8, draw: () => crouchParts({ legs: [[1, 7, 2, 1], [9, 7, 2, 1]] }) },
   walk2: { w: 16, h: 8, draw: () => crouchParts({ legs: [[4, 7, 2, 1], [6, 7, 2, 1]] }) },
   proud: { w: 16, h: 8, draw: () => crouchParts({ eyeMarkup: `${rect(11, 4.3, 1.4, 0.6, C.amber)}${rect(13, 4.3, 1.4, 0.6, C.amber)}` }) },

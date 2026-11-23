@@ -43,14 +43,20 @@ export function toast(message, ms = 2400) {
   toastTimer = setTimeout(() => el.classList.remove('show'), ms);
 }
 
-/** Floating "+973" rising from a client rect. */
-export function floatPoints(rect, text) {
+/** Floating "+785" rising from a client rect, kept fully inside `bounds` (never clipped at the edges). */
+export function floatPoints(rect, text, bounds = null) {
   const el = document.createElement('div');
   el.className = 'float-points';
   el.textContent = text;
-  el.style.left = rect.left + rect.width / 2 + 'px';
-  el.style.top = rect.top + rect.height / 2 + 'px';
   document.body.appendChild(el);
+  const half = el.offsetWidth / 2 + 4;
+  let x = rect.left + rect.width / 2;
+  let y = rect.top + rect.height / 2;
+  const b = bounds || { left: 0, right: window.innerWidth, top: 0, bottom: window.innerHeight };
+  x = Math.max(b.left + half, Math.min(b.right - half, x));
+  y = Math.max(b.top + el.offsetHeight + 56, Math.min(b.bottom - 8, y)); // room to rise 48px
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
   const a = el.animate(
     reducedMotion()
       ? [{ opacity: 0 }, { opacity: 1, offset: 0.2 }, { opacity: 1, offset: 0.8 }, { opacity: 0 }]
