@@ -144,12 +144,17 @@ const run = (f) => {
 
 export const THIEF = defineSprite('thief', [W, H], THIEF_PALETTE, {
   sneak: { fps: 5, loop: true, frames: [0, 1, 2, 3].map(sneak) },
-  glance: { fps: 4, loop: false, frames: [0, 1, 2].map(glance) },
+  glance: { fps: 8, loop: false, frames: [0, 1, 2].map(glance) },
   spooked: { fps: 8, loop: false, frames: [0, 1].map(spooked) },
   stagger: { fps: 8, loop: false, frames: [0, 1, 2].map(stagger) },
   sack_drop: { fps: 3, loop: false, frames: [0, 1].map(sackDrop) },
   unmasked: { fps: 3, loop: true, frames: [0, 1].map(unmasked) },
   tied: { fps: 2, loop: true, frames: [0, 1].map(tied) },
-  hat_tip: { fps: 5, loop: false, frames: [0, 1, 2].map(hatTip) },
+  hat_tip: { fps: 12, loop: false, frames: [0, 1, 2].map(hatTip) },
   run: { fps: 10, loop: true, frames: [0, 1, 2, 3].map(run) }
+});
+
+/** The loose mask on its own (8x4), for the flip-off. */
+export const MASK = defineSprite('mask', [8, 4], { '.': null, w: '#F4E7C3', d: '#05040C', o: '#8A7CD0' }, {
+  still: { fps: 1, loop: false, frames: [['oooooooo', 'wwwwwwww', 'wddwwddw', 'oooooooo']] }
 });

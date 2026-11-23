@@ -1,7 +1,7 @@
 // Home: the city at night. Three WANTED posters on a rooftop wall; the cat watches from the top.
 import { C, moon, skyline, rainHTML } from './pixel.js';
-import { catSVG } from './cat.js';
-import { portraitSVG } from './thief.js';
+import { THIEF } from './sprite-thief.js';
+import { spriteImg } from './portraits.js';
 import { logoSVG } from './logo.js';
 import { escapeHTML } from './scene.js';
 
@@ -15,7 +15,7 @@ export function homeHTML(nights) {
       return `<button class="poster poster--caught" data-id="${n.id}" aria-label="${label}, caught. The thief was ${escapeHTML(n.name)}. ${n.title}, score ${n.score}, from ${n.from}. See results">
         <span class="tape" aria-hidden="true"></span>
         <span class="wanted">WANTED</span>
-        <span class="p-art">${portraitSVG({ masked: false, px: 6 })}</span>
+        <span class="p-art">${spriteImg(THIEF, 'unmasked', 0, 112)}</span>
         <span class="p-name fit">${escapeHTML(n.name)}</span>
         <span class="p-night">NIGHT #${n.id}</span>
         <span class="p-meta"><b>${n.score}</b> · ${escapeHTML(n.title)}<br>from ${n.from}</span>
@@ -27,7 +27,7 @@ export function homeHTML(nights) {
       return `<button class="poster poster--away" data-id="${n.id}" aria-label="${label}, got away. ${n.title}, score ${n.score}. See results">
         <span class="tape" aria-hidden="true"></span>
         <span class="wanted">WANTED</span>
-        <span class="p-art">${portraitSVG({ masked: true, px: 6 })}</span>
+        <span class="p-art">${spriteImg(THIEF, 'sneak', 0, 112)}</span>
         <span class="p-name">GOT AWAY</span>
         <span class="p-night">NIGHT #${n.id}</span>
         <span class="p-meta"><b>${n.score}</b> · ${escapeHTML(n.title)}</span>
@@ -37,7 +37,7 @@ export function homeHTML(nights) {
     return `<button class="poster" data-id="${n.id}" aria-label="${label}, unsolved. Reward 5,000. ${n.started ? 'Resume' : 'Play'}">
       <span class="tape" aria-hidden="true"></span>
       <span class="wanted">WANTED</span>
-      <span class="p-art">${portraitSVG({ masked: true, px: 6 })}</span>
+      <span class="p-art">${spriteImg(THIEF, 'sneak', 0, 112)}</span>
       <span class="p-name">?</span>
       <span class="p-night">NIGHT #${n.id}</span>
       <span class="p-meta">REWARD <b>5,000</b></span>
@@ -62,7 +62,7 @@ export function homeHTML(nights) {
         </div>
       </div>
       <div class="facade">
-        <div class="wall-top"><div class="home-cat">${catSVG('crouch', 6)}</div><svg class="home-moon" viewBox="0 0 48 48" shape-rendering="crispEdges" aria-hidden="true">${moon(20, 22, 5)}</svg></div>
+        <div class="wall-top"><div class="home-cat"><canvas id="homeCat" aria-hidden="true"></canvas></div><svg class="home-moon" viewBox="0 0 48 48" shape-rendering="crispEdges" aria-hidden="true">${moon(20, 22, 5)}</svg></div>
         <div class="wall">${posters}</div>
         <div class="home-links">
           <button class="link-btn" id="howBtn">How to play</button>

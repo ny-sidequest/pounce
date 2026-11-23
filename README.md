@@ -34,3 +34,10 @@ To use pounce.io later: add a `CNAME` file containing `pounce.io` in the repo ro
 
 ## Feedback link
 The footer link is `#feedback` in `js/app.js`; replace it with your Google Form URL.
+
+## Characters, sequences and builds
+
+- `js/sprites.js` frame-based sprite system; `js/sprite-cat.js` and `js/sprite-thief.js` generate every frame in code (view them all at `/sprites.html`).
+- `js/sequences.js` every animated moment as a timeline of timed steps (tune the beats in `T` and each step's `dur`).
+- `js/timer.js` the pausable question timer and the gate that holds it during sequences and cards (tested in `tests/timer.test.js`).
+- **Cache-busting:** run `npm run stamp` before committing. It hashes the js/css/data files and rewrites `index.html` (versioned entry script and stylesheet, plus an import map so every module import carries `?v=<hash>`).

@@ -123,6 +123,15 @@ export function getFrame(sprite, name, i, scale = 4, flip = false) {
   return hit;
 }
 
+const urlCache = new Map();
+/** A frame as a PNG data URL (for SVG <image> targets). */
+export function frameURL(sprite, name, i, scale = 4) {
+  const key = `${sprite.id}|${name}|${i}|${scale}`;
+  let u = urlCache.get(key);
+  if (!u) { u = renderFrame(sprite.anims[name].frames[i], sprite.palette, scale).toDataURL('image/png'); urlCache.set(key, u); }
+  return u;
+}
+
 /* ------------------------------------------------------------------ player */
 export class SpritePlayer {
   constructor(canvas, sprite, { scale = 4, flip = false } = {}) {
@@ -136,12 +145,23 @@ export class SpritePlayer {
     this.last = 0;
     this.blinkAt = 0;
     this.blinking = false;
-    canvas.width = sprite.size[0] * scale;
-    canvas.height = sprite.size[1] * scale;
-    canvas.style.imageRendering = 'pixelated';
-    this.ctx = canvas.getContext('2d');
-    this.ctx.imageSmoothingEnabled = false;
+    this.isImage = !(canvas instanceof HTMLCanvasElement); // an SVG <image> target
+    this.paused = false;
+    if (!this.isImage) {
+      canvas.width = sprite.size[0] * scale;
+      canvas.height = sprite.size[1] * scale;
+      canvas.style.imageRendering = 'pixelated';
+      this.ctx = canvas.getContext('2d');
+      this.ctx.imageSmoothingEnabled = false;
+    } else canvas.style.imageRendering = 'pixelated';
   }
+
+  /** Resolves when a non-looping animation finishes (it holds its last frame). */
+  playAsync(name, opts = {}) {
+    return new Promise((resolve) => this.play(name, { ...opts, onComplete: () => { opts.onComplete?.(); resolve(); } }));
+  }
+  pause() { this.paused = true; }
+  resume() { this.paused = false; this.last = performance.now(); }
 
   /** play(name, { onFrame(i), onComplete(), flip, holdLast }) */
   play(name, { onFrame, onComplete, flip, from = 0 } = {}) {
@@ -164,13 +184,19 @@ export class SpritePlayer {
   draw() {
     const { name, index, scale, flip } = this;
     const useBlink = this.blinking && this.sprite.anims[`${name}_blink`];
-    const frame = getFrame(this.sprite, useBlink ? `${name}_blink` : name, useBlink ? Math.min(index, this.sprite.anims[`${name}_blink`].frames.length - 1) : index, scale, flip);
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    this.ctx.drawImage(frame, 0, 0);
+    const nm = useBlink ? `${name}_blink` : name;
+    const ix = useBlink ? Math.min(index, this.sprite.anims[nm].frames.length - 1) : index;
+    if (this.isImage) this.canvas.setAttribute('href', frameURL(this.sprite, nm, ix, 4));
+    else {
+      const frame = getFrame(this.sprite, nm, ix, scale, flip);
+      this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+      this.ctx.drawImage(frame, 0, 0);
+    }
     this.onFrame?.(index);
   }
 
   tick(now) {
+    if (this.paused) { this.raf = requestAnimationFrame((t) => this.tick(t)); return; }
     const { anim } = this;
     const step = 1000 / anim.fps;
     // an occasional random blink (every ~3s) for animations that have a "<name>_blink" variant

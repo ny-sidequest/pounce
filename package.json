@@ -1,1 +1,10 @@
-{"name":"pounce","private":true,"type":"module","scripts":{"test":"node --test","start":"python3 -m http.server 8000"}}
+{
+  "name": "pounce",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "start": "python3 -m http.server 8000",
+    "stamp": "node scripts/stamp.mjs"
+  }
+}

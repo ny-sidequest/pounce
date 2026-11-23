@@ -2,7 +2,8 @@
 import { totals, titleFor, shareText, formatNumber as fmt, MAX_SCORE, leapMeters, gapMeters } from './engine.js';
 import { C, rect, rainHTML } from './pixel.js';
 import { resultsArt } from './art.js';
-import { portraitSVG } from './thief.js';
+import { THIEF } from './sprite-thief.js';
+import { spriteImg } from './portraits.js';
 import { escapeHTML } from './scene.js';
 import { toast, sparkBurst } from './fx.js';
 import { autoFit } from './fit.js';
@@ -87,7 +88,7 @@ export function renderResults(root, puzzle, p, { onHome, shareText: shareOverrid
       </div>
 
       <div class="connect-card">
-        <div class="cc-face" aria-hidden="true">${portraitSVG({ masked: false, px: 5, mark: false })}</div>
+        <div class="cc-face" aria-hidden="true">${spriteImg(THIEF, 'unmasked', 0, 112)}</div>
         <div class="cc-text">
           <p class="cc-label">THE THIEF WAS…</p>
           <h2 class="cc-name fit">${escapeHTML(puzzle.connect.answer)}</h2>

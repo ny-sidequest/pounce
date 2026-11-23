@@ -1,8 +1,10 @@
 // App shell: loads puzzles, the home screen (wanted posters), the story how-to, screen switching.
 import { isComplete, hasStarted, newProgress, totals, titleFor, chaseState, leapMeters, formatNumber as fmt } from './engine.js';
 import { maybeReset, loadProgress, applyReloadRule, getPref, setPref } from './store.js';
-import { catSVG } from './cat.js';
-import { thiefSVG } from './thief.js';
+import { CAT } from './sprite-cat.js';
+import { THIEF } from './sprite-thief.js';
+import { spriteImg } from './portraits.js';
+import { SpritePlayer } from './sprites.js';
 import { homeHTML } from './home.js';
 import { mountGame } from './game.js';
 import { renderResults } from './results.js';
@@ -14,8 +16,8 @@ let game = null;
 
 /* ------------------------------------------------------------------ how to */
 const HOW_STEPS = [
-  { art: () => thiefSVG('stand', 4), title: 'A masked thief prowls the rooftops every night.', text: 'Nobody sees it.' },
-  { art: () => catSVG('crouch', 4), title: 'Your cat is the only one watching.', text: 'Crack the clues to pick up its trail.' },
+  { art: () => spriteImg(THIEF, 'sneak', 0, 56), title: 'A masked thief prowls the rooftops every night.', text: 'Nobody sees it.' },
+  { art: () => spriteImg(CAT, 'idle', 0, 40), title: 'Your cat is the only one watching.', text: 'Crack the clues to pick up its trail.' },
   { art: () => '<span class="how-num">5.0m</span>', title: 'Crack the clues. Close the gap.', text: '5 clues, 20 seconds each, 3 tries. Each one brings you a roof closer.' },
   { art: () => '<span class="how-num">5,000</span>', title: 'Pounce.', text: 'One pounce only. The earlier you pounce, the further the leap and the bigger the score. Land it and you unmask the thief. Miss, and it is into the bins.' }
 ];
@@ -58,6 +60,12 @@ function renderHome() {
   root.querySelectorAll('.poster').forEach((b) => b.addEventListener('click', () => openPuzzle(Number(b.dataset.id))));
   const how = root.querySelector('#howBtn');
   how.addEventListener('click', () => showHow(how));
+  const hc = root.querySelector('#homeCat');
+  if (hc) new SpritePlayer(hc, CAT, { scale: 6 }).play('idle');
+  // the poster row opens centred on the first unplayed night
+  const wall = root.querySelector('.wall');
+  const first = [...root.querySelectorAll('.poster')].find((b) => !b.classList.contains('poster--caught') && !b.classList.contains('poster--away')) || root.querySelector('.poster');
+  if (wall && first && wall.scrollWidth > wall.clientWidth + 4) wall.scrollLeft = first.offsetLeft - (wall.clientWidth - first.offsetWidth) / 2;
   window.scrollTo(0, 0);
 }
 
@@ -99,7 +107,7 @@ window.addEventListener('pointerdown', resumeAmbience, { once: true });
 async function boot() {
   maybeReset();
   try {
-    const res = await fetch('data/puzzles.json');
+    const res = await fetch('data/puzzles.json?v=' + (window.BUILD || Date.now()));
     puzzles = (await res.json()).puzzles;
   } catch {
     root.innerHTML = '<main class="screen home"><p class="story-intro">Could not load the puzzles. Serve this folder over http (for example python3 -m http.server) and reload.</p></main>';

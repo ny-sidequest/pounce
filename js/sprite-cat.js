@@ -178,14 +178,14 @@ function swat(f) {
   return finish(g);
 }
 
-function fall(f) {
+function fall(f, eyes = 'wide') {
   const g = new Grid(W, H);
   const a = f % 2;
   g.line(12, 19, 9, 23 - a, 'k', 2).line(17, 19, 22, 23 - (1 - a), 'k', 2);   // back legs
   g.line(11, 14, 5, 11 + a * 2, 'k', 2).line(19, 14, 26, 11 + (1 - a) * 2, 'k', 2); // arms flailing
   g.line(11, 20, 7, 19 + a, 'k', 2);                                             // tail
   g.ellipse(15, 15, 5, 6, 'k');
-  head(g, 17, 8, { eyes: 'wide', ears: 'back' });
+  head(g, 17, 8, { eyes, ears: 'back' });
   scarf(g, 17, 12, { dir: 'up', wave: a * 2 });
   g.glyph('!', 25, 1, 'w');
   return finish(g);
@@ -251,7 +251,9 @@ export const CAT = defineSprite('cat', [W, H], CAT_PALETTE, {
   land: { fps: 8, loop: false, frames: [0, 1].map(land) },
   swat: { fps: 10, loop: false, frames: [0, 1, 2].map(swat) },
   sit_smug: { fps: 2, loop: true, frames: [0, 1].map((i) => sit({ eyes: 'half', tail: [0, 2][i], wave: i, ears: 'back' })) },
-  fall: { fps: 10, loop: true, frames: [0, 1, 2, 3].map(fall) },
+  fall: { fps: 10, loop: true, frames: [0, 1, 2, 3].map((i) => fall(i)) },
+  realize: { fps: 1, loop: false, frames: [fall(0, 'bug')] },
+  droop: { fps: 1, loop: false, frames: [sit({ eyes: 'closed', ears: 'droop', headDy: 1 })] },
   bin: { fps: 4, loop: true, frames: [0, 1, 2].map((i) => bin(i)) },
   walk: { fps: 8, loop: true, frames: [0, 1, 2, 3].map(walk) },
   // title poses (single frames)
