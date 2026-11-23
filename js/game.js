@@ -1,20 +1,21 @@
-// Game screen controller: one prowl from the first clue to the last leap.
+// Night screen controller: one night's chase, from the first clue to the end of the night.
+// Story: the cat creeps across the rooftops after a masked thief. Clues bring it closer; pouncing is the leap.
 import {
   QUESTION_SECONDS, BREAK_SECONDS, POUNCE_SECONDS, MAX_ATTEMPTS, QUESTIONS_PER_PUZZLE,
   answerGuess, judgePounce, pounceValue, totals, titleFor, formatNumber as fmt,
-  gapMeters, leapMeters, formatMeters, skipsBreak,
+  leapMeters, formatMeters, skipsBreak, chaseState, gapForState,
   startQuestion, resolveQuestion, nextClue, canPounce, openPounce, cancelPounce, noteClose,
   resolvePounce, skipFinal, applyReload
 } from './engine.js';
-import { catSVG } from './cat.js';
 import { createScene, escapeHTML } from './scene.js';
 import { rainHTML } from './pixel.js';
-import { sparkBurst, floatPoints, reducedMotion } from './fx.js';
+import { sparkBurst, floatPoints, reducedMotion, toast } from './fx.js';
 import { sfx, isSoundOn, setSound } from './audio.js';
 import { saveProgress } from './store.js';
 
 const $ = (root, sel) => root.querySelector(sel);
-const HEADS_UP = 'Heads up: the remaining clues are general knowledge, not from the connect.';
+const HEADS_UP = 'Heads up: the remaining clues are general knowledge, not about the thief.';
+const m1 = (g) => `${g.toFixed(1)} m`;
 
 function countdown(seconds, onTick, onDone) {
   const end = performance.now() + seconds * 1000;
@@ -34,9 +35,6 @@ function countdown(seconds, onTick, onDone) {
 const strand = (id) => `<div class="strand" id="${id}" style="--p:1" aria-hidden="true"><div class="strand-fill"></div></div>`;
 const setStrand = (el, frac, urgent) => { el.style.setProperty('--p', Math.max(0, Math.min(1, frac)).toFixed(4)); el.classList.toggle('urgent', urgent); };
 
-const HOME_ICON = '‹';
-const SND = () => 'SND';
-
 export function mountGame(root, puzzle, initial, { onHome, onResults }) {
   let p = initial;
   let timer = null;
@@ -53,12 +51,12 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
   ${rainHTML()}
   <section class="screen game">
     <div class="topline">
-      <button class="icon-btn" id="homeBtn" aria-label="Back to home">${HOME_ICON}</button>
-      <h1 class="pz-name">PROWL #${puzzle.id}</h1>
+      <button class="icon-btn" id="homeBtn" aria-label="Back to home">‹</button>
+      <h1 class="pz-name">NIGHT #${puzzle.id}</h1>
       <button class="icon-btn" id="soundBtn"></button>
     </div>
     <header class="hud">
-      <div class="hud-box hud-leap"><span class="lab" id="leapLab">LEAP</span><span class="val" id="leapVal"></span></div>
+      <div class="hud-box hud-leap" id="leapBox"><span class="lab" id="leapLab">GAP</span><span class="val" id="leapVal"></span></div>
       <ol class="pips" id="pips" aria-label="Progress"></ol>
       <div class="hud-box hud-score"><span class="lab">SCORE</span><span class="val" id="score">0</span></div>
     </header>
@@ -66,22 +64,21 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
     <div class="panel" id="panel" aria-live="polite"></div>
     <div class="sr-only" id="live" aria-live="polite"></div>
   </section>
-  <dialog class="modal pounce-dlg" id="pounceDlg" aria-labelledby="pdTitle"></dialog>
-  <dialog class="modal reveal-dlg" id="revealDlg" aria-labelledby="rvTitle"></dialog>`;
+  <dialog class="modal pounce-dlg" id="pounceDlg" aria-labelledby="pdTitle"></dialog>`;
 
   const panel = $(root, '#panel');
   const live = $(root, '#live');
   const pounceDlg = $(root, '#pounceDlg');
-  const revealDlg = $(root, '#revealDlg');
   const scene = createScene($(root, '#sceneHost'));
 
   const save = () => saveProgress(p);
   const announce = (t) => { live.textContent = ''; setTimeout(() => (live.textContent = t), 30); };
   const stopTimer = () => { if (timer) { timer.stop(); timer = null; } };
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-
-  const leapt = () => p.pounce.status === 'correct';
-  const basePose = () => (canPounce(p) && (p.phase === 'break' || p.phase === 'final') ? 'wiggle' : 'crouch');
+  const chase = () => chaseState(p);
+  const correctCount = () => p.results.filter((r) => r.status === 'correct').length;
+  /** how many clues the cat has resolved since it fell, i.e. its steps along the street */
+  const footStep = () => Math.max(0, p.results.length - (p.pounce.afterQ ?? 0));
 
   function updateScore(animate = true) {
     const el = $(root, '#score');
@@ -100,8 +97,13 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
 
   function updateHud() {
     const n = p.results.length;
-    $(root, '#leapLab').textContent = leapt() ? 'LEAPT' : 'LEAP';
-    $(root, '#leapVal').textContent = formatMeters(leapt() ? leapMeters(p.pounce.points) : gapMeters(n));
+    const st = chase();
+    const box = $(root, '#leapBox');
+    const lab = $(root, '#leapLab');
+    const val = $(root, '#leapVal');
+    box.className = 'hud-box hud-leap' + (st === 'on_foot' || st === 'got_away' ? ' foot' : st === 'caught' ? ' caught' : '');
+    if (st === 'chasing') { lab.textContent = 'GAP'; val.textContent = formatMeters(gapForState(p)); val.className = 'val'; }
+    else { lab.textContent = ''; val.textContent = st === 'caught' ? 'CAUGHT' : st === 'on_foot' ? 'ON FOOT' : 'GOT AWAY'; val.className = 'val state'; }
     $(root, '#pips').innerHTML = Array.from({ length: QUESTIONS_PER_PUZZLE }, (_, i) => {
       const r = p.results[i];
       const cur = !r && i === n;
@@ -112,20 +114,36 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
     $(root, '#homeBtn').hidden = p.phase === 'question' || p.phase === 'pounce';
     const s = $(root, '#soundBtn');
     const on = isSoundOn();
-    s.textContent = SND(on);
+    s.textContent = 'SND';
     s.classList.toggle('off', !on);
     s.setAttribute('aria-label', on ? 'Sound on' : 'Sound off');
     s.setAttribute('aria-pressed', String(on));
   }
 
+  /** The cat's resting pose for the current state. */
+  const basePose = () => (chase() === 'caught' ? 'proud' : canPounce(p) && (p.phase === 'break' || p.phase === 'final') ? 'wiggle' : 'crouch');
+
   /* -------------------------------------------------------- restore the world */
-  const correctCount = () => p.results.filter((r) => r.status === 'correct').length;
-  p.results.forEach((r, i) => scene.lightLantern(i, puzzle.clues[i].answer, r.status !== 'correct', false));
+  p.results.forEach((r, i) => scene.lightLamp(i, puzzle.clues[i].answer, r.status !== 'correct', false));
   scene.setLight(correctCount());
-  if (leapt()) { scene.setGap(p.pounce.afterQ, false); scene.setRevealed(puzzle.connect.answer); }
-  else { scene.setGap(p.results.length, false); if (p.pounce.status === 'wrong') scene.setFallen(); }
+  {
+    const st = chase();
+    if (st === 'caught') scene.showCaught(puzzle.connect.answer);
+    else if (st === 'on_foot') scene.showOnFoot(footStep());
+    else if (st === 'got_away') { scene.setCatRoof(4); scene.setThief('gone'); }
+    else scene.setCatRoof(5 - gapForState(p));
+  }
   updateScore(false);
   updateHud();
+
+  /** After a clue resolves, the cat moves: a hop along the roofs, or a step along the street. */
+  function moveCat() {
+    const st = chase();
+    if (st === 'chasing') {
+      const idx = 5 - gapForState(p);
+      if (idx !== scene.getRoof()) scene.hopTo(idx);
+    } else if (st === 'on_foot') scene.walkTo(footStep());
+  }
 
   /* ---------------------------------------------------------------- question */
   function showQuestion() {
@@ -137,7 +155,7 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
     const i = p.results.length;
     const clue = puzzle.clues[i];
     updateHud();
-    if (!leapt()) scene.setPose('crouch');
+    scene.setPose(basePose());
     panel.innerHTML = `
       <div class="qpanel" id="qcard">
         <div class="q-meta"><span class="q-num">CLUE ${i + 1} OF ${QUESTIONS_PER_PUZZLE}</span>
@@ -199,19 +217,17 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
     const r = p.results[i];
     const clue = puzzle.clues[i];
     const missed = status !== 'correct';
-    scene.lightLantern(i, clue.answer, missed);
+    scene.lightLamp(i, clue.answer, missed); // missed: the lamp stays dark, but the answer is shown
     scene.setLight(correctCount());
-    if (!leapt()) scene.setGap(p.results.length);
+    moveCat();
     updateScore();
     updateHud();
     if (!missed) {
       sfx.purr();
-      const lr = scene.lanternRect(i);
+      const lr = scene.lampRect(i);
       sparkBurst(lr.left + lr.width / 2, lr.top + lr.height / 2, { count: 14, spread: 60 });
       floatPoints(lr, `+${fmt(r.points)}`);
-    } else {
-      sfx.nope();
-    }
+    } else sfx.nope();
     announce(missed ? `Missed. The answer was ${clue.answer}.` : `Correct. Plus ${r.points} points.`);
     showBreak();
   }
@@ -226,40 +242,47 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
       : `<div class="result-line"><span class="pts-pill miss">0</span><span>Missed · It was <b>${escapeHTML(clue.answer)}</b></span></div>`;
   }
 
+  /** End of the night: Case closed, or It got away. */
+  function showEnd() {
+    panel.style.visibility = '';
+    stopTimer();
+    const caught = chase() === 'caught';
+    panel.innerHTML = `<div class="break">${p.results.length ? resultLine() : ''}
+      <h2 class="break-title">${caught ? 'Case closed.' : 'It got away... this time.'}</h2>
+      <button class="btn btn-amber" id="resultsBtn">SEE RESULTS ▸</button></div>`;
+    $(panel, '#resultsBtn').addEventListener('click', () => onResults());
+    scene.setPose(basePose());
+    updateHud();
+  }
+
   function showBreak() {
     panel.style.visibility = '';
     stopTimer();
     clearTimeout(skipTimer);
     const n = p.results.length;
+
+    if (p.phase === 'done') { showEnd(); return; }
+
     const pounceBtn = `<button class="btn btn-neon" id="pounceBtn"><span>POUNCE ▸</span><span class="pv">${fmt(pounceValue(n))}</span></button>`;
 
-    if (p.phase === 'done') {
-      panel.innerHTML = `<div class="break">${resultLine()}<h2 class="break-title">That's all five</h2>
-        <p class="break-sub">The roofs are quiet. Time to see how it all links.</p>
-        <button class="btn btn-amber" id="resultsBtn">SEE RESULTS ▸</button></div>`;
-      $(panel, '#resultsBtn').addEventListener('click', () => onResults());
-      scene.setPose(leapt() ? 'land' : 'crouch');
-      return;
-    }
     if (p.phase === 'final') {
-      panel.innerHTML = `<div class="break">${resultLine()}<h2 class="break-title">Last leap</h2>
-        <p class="break-sub">Only ${formatMeters(gapMeters(n))} left to cross. One last chance.</p>
+      panel.innerHTML = `<div class="break">${resultLine()}
+        <h2 class="break-title">Last chance: the thief is ${m1(gapForState(p))} away.</h2>
         ${pounceBtn}
-        <button class="btn" id="skipBtn">Skip to results</button></div>`;
+        <button class="btn" id="skipBtn">Let it go</button></div>`;
       $(panel, '#pounceBtn').addEventListener('click', openPounceBox);
-      $(panel, '#skipBtn').addEventListener('click', () => { p = skipFinal(p); save(); onResults(); });
+      $(panel, '#skipBtn').addEventListener('click', letItGo);
       scene.setPose('wiggle');
       return;
     }
     if (skipsBreak(p)) {
       // the pounce is spent: show the result for a moment, then carry on
       panel.innerHTML = `<div class="break">${resultLine()}</div>`;
-      scene.setPose(leapt() ? 'land' : 'crouch');
       skipTimer = setTimeout(() => !destroyed && goNext(), 1200);
       return;
     }
     panel.innerHTML = `<div class="break">${resultLine()}
-      <h2 class="break-title">Leap now, or creep closer?</h2>
+      <h2 class="break-title">The thief is ${m1(gapForState(p))} away. Leap now, or creep closer?</h2>
       ${pounceBtn}
       <button class="btn" id="nextBtn">Creep closer →</button>
       <div class="break-timer" aria-hidden="true"><div class="bt-bar"><div class="bt-fill" id="btFill"></div></div><span id="btText">Creeping closer in ${BREAK_SECONDS}s</span></div></div>`;
@@ -286,6 +309,16 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
     showQuestion();
   }
 
+  /** After clue 5, the player lets the thief go: it slips away and the night ends. */
+  async function letItGo() {
+    p = skipFinal(p);
+    save();
+    panel.style.visibility = 'hidden';
+    updateHud();
+    await scene.runThief();
+    if (!destroyed) showEnd();
+  }
+
   /* ------------------------------------------------------------------- pounce */
   function openPounceBox() {
     if (!canPounce(p)) return;
@@ -299,12 +332,12 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
     scene.setPose('wiggle');
     pounceDlg.innerHTML = `
       <div class="dlg-box pounce-box" id="pbBox">
-        <h2 id="pdTitle">Name the connect</h2>
-        <p class="pb-sub">A ${formatMeters(leapMeters(pounceValue(n)))} leap · worth <b>${fmt(pounceValue(n))}</b> · one shot</p>
+        <h2 id="pdTitle">Who's under the mask?</h2>
+        <p class="pb-sub">A ${m1(leapMeters(pounceValue(n)))} leap · worth <b>${fmt(pounceValue(n))}</b> · one shot</p>
         <div class="q-meta"><span class="q-num">TIME TO LEAP</span><span class="timer-num" id="ptnum" aria-hidden="true">${POUNCE_SECONDS.toFixed(1)}</span></div>
         ${strand('pstrand')}
         <form class="answer-form" id="pform" autocomplete="off">
-          <input id="pans" type="text" enterkeyhint="go" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Name the connect" placeholder="name the connect">
+          <input id="pans" type="text" enterkeyhint="go" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Name the thief" placeholder="Name the thief">
           <button class="btn btn-neon" type="submit" id="pgo">LEAP ▸</button>
         </form>
         <p class="pb-msg" id="pmsg" role="status"></p>
@@ -356,7 +389,7 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
       box.classList.remove('shake');
       void box.offsetWidth;
       box.classList.add('shake');
-      $(pounceDlg, '#pmsg').textContent = 'Close! Be more specific.';
+      $(pounceDlg, '#pmsg').textContent = 'Close! The mask slips... be more specific.';
       sfx.nope();
       input.value = '';
       input.focus({ preventScroll: true });
@@ -375,67 +408,55 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
     panel.style.visibility = 'hidden'; // no stale buttons behind the leap
     closePounceDlg();
     updateScore();
-    updateHud();
-    if (correct) await celebrate(value);
-    else await tumble(n, reason);
+    if (correct) await catchThief(value);
+    else await fallShort(n, reason);
   }
 
-  async function celebrate(value) {
+  /** Correct pounce: leap, land on the thief, the mask comes off. */
+  async function catchThief(value) {
     const t = titleFor(p);
     sfx.mrrp();
-    await scene.leapSuccess(puzzle.connect.answer);
-    const lr = scene.lurkerRect();
-    sparkBurst(lr.left + lr.width / 2, lr.top + lr.height / 3, { count: 40, spread: 170 });
-    scene.setPose('crouch');
+    await scene.leapCatch(puzzle.connect.answer);
+    if (destroyed) return;
     updateHud();
-    await wait(reducedMotion() ? 100 : 700);
+    const tr = scene.thiefRect();
+    sparkBurst(tr.left + tr.width / 2, tr.top + tr.height / 3, { count: 40, spread: 170 });
+    floatPoints(tr, `+${fmt(value)}`);
+    toast(`Caught from ${formatMeters(leapMeters(value))}! ${t.title}.`);
+    announce(`Caught from ${formatMeters(leapMeters(value))}. Plus ${value} points. ${t.title}. The thief was ${puzzle.connect.answer}.`);
+    await wait(reducedMotion() ? 300 : 1400);
     if (destroyed) return;
-    revealDlg.innerHTML = `
-      <div class="dlg-box reveal-box">
-        <div class="pb-cat">${catSVG(t.pose, 4)}</div>
-        <p class="reveal-title">PURRFECT!</p>
-        <p class="big-pts" id="rvTitle">+${fmt(value)}</p>
-        <p class="rv-connect">Leapt ${formatMeters(leapMeters(value))} · ${escapeHTML(puzzle.connect.answer)}</p>
-        <p class="title-earned">${escapeHTML(t.title)}!</p>
-        <button class="btn btn-amber" id="rvCont">${p.phase === 'done' ? 'SEE RESULTS ▸' : 'Creep on →'}</button>
-      </div>`;
-    revealDlg.showModal();
-    $(revealDlg, '#rvCont').addEventListener('click', () => { revealDlg.close(); afterPounce(true); });
-    announce(`Purrfect. Leapt ${formatMeters(leapMeters(value))}. Plus ${value} points. ${t.title}.`);
-  }
-
-  async function tumble(n, reason) {
-    sfx.clatter();
-    await scene.leapFail();
-    if (destroyed) return;
-    const t = titleFor(p);
-    revealDlg.innerHTML = `
-      <div class="dlg-box reveal-box">
-        <div class="pb-cat">${catSVG(t.pose, 4)}</div>
-        <p class="reveal-title">CLATTER!</p>
-        <h2 id="rvTitle">${escapeHTML(t.title)}</h2>
-        <p class="pb-msg">${reason === 'timeout' ? 'Out of time. ' : ''}Fell short at ${formatMeters(gapMeters(n))}. The connect stays hidden.</p>
-        <button class="btn btn-amber" id="rvCont">${p.phase === 'done' ? 'SEE RESULTS ▸' : 'Climb out →'}</button>
-      </div>`;
-    revealDlg.showModal();
-    $(revealDlg, '#rvCont').addEventListener('click', () => { revealDlg.close(); scene.resetCat(); scene.setFallen(); afterPounce(false); });
-    announce(`Bin diver. Fell short at ${formatMeters(gapMeters(n))}. The connect stays hidden.`);
-  }
-
-  function afterPounce(wasCorrect) {
-    if (destroyed) return;
-    if (p.phase === 'done') { onResults(); return; }
-    if (wasCorrect) { showHeadsUp(); return; }
-    showQuestion();
-  }
-
-  /** One-line note after a correct pounce, before the next clue. */
-  function showHeadsUp() {
     panel.style.visibility = '';
+    if (p.phase === 'done') { showEnd(); return; }
+    // one-line note before the next clue
     panel.innerHTML = `<div class="break"><p class="heads-up">${HEADS_UP}</p><button class="btn btn-amber" id="huBtn">GOT IT ▸</button></div>`;
     const go = () => { clearTimeout(skipTimer); if (!destroyed && p.phase === 'break') showQuestion(); };
     $(panel, '#huBtn').addEventListener('click', go);
-    skipTimer = setTimeout(go, 3200);
+    skipTimer = setTimeout(go, 3600);
+  }
+
+  /** Wrong pounce or timeout: fall short, crash into the bins; the thief escapes. */
+  async function fallShort(n, reason) {
+    scene.onClatter(() => sfx.clatter());
+    await scene.leapFail();
+    if (destroyed) return;
+    updateHud();
+    const prefix = reason === 'timeout' ? 'Out of time. ' : '';
+    toast('CLATTER! The thief got away.');
+    announce(`CLATTER! ${prefix}You fell short at ${m1(leapMeters(pounceValue(n)))}. The thief got away.`);
+    panel.style.visibility = '';
+    panel.innerHTML = `<div class="break">
+      <h2 class="break-title">CLATTER! The thief got away.</h2>
+      <p class="break-sub">${prefix}You fell short at ${m1(leapMeters(pounceValue(n)))}. The mask stays on.</p>
+      <button class="btn btn-amber" id="climbBtn">Climb out →</button></div>`;
+    $(panel, '#climbBtn').addEventListener('click', async () => {
+      panel.style.visibility = 'hidden';
+      await scene.walkTo(0, true); // the cat climbs out and follows on foot, down in the street
+      if (destroyed) return;
+      panel.style.visibility = '';
+      if (p.phase === 'done') showEnd();
+      else showQuestion();
+    });
   }
 
   /* --------------------------------------------------------------- top bar UI */
@@ -450,6 +471,7 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
     destroyed = true;
     stopTimer();
     clearTimeout(skipTimer);
+    scene.destroy();
     if (p.phase === 'question' || p.phase === 'pounce') { p = applyReload(p); save(); }
     document.querySelectorAll('.fx-layer, .float-points').forEach((n) => n.remove());
   }

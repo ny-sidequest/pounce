@@ -35,12 +35,12 @@ export function sparkBurst(x, y, { count = 28, spread = 150, colors = COLORS } =
 }
 
 let toastTimer;
-export function toast(message) {
+export function toast(message, ms = 2400) {
   const el = document.getElementById('toast');
   el.textContent = message;
   el.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), 1800);
+  toastTimer = setTimeout(() => el.classList.remove('show'), ms);
 }
 
 /** Floating "+973" rising from a client rect. */

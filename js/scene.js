@@ -290,6 +290,7 @@ export function createScene(host) {
   /** Correct pounce: the cat leaps onto the thief's roof, the thief staggers, the mask flips off. */
   async function leapCatch(name) {
     dim(false);
+    gapGroup.style.display = 'none'; // the chase is over
     const x1 = roofX(THIEF_ROOF) + 1;
     const y1 = catYOn(THIEF_ROOF);
     setPose('wiggle');

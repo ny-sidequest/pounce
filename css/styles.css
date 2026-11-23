@@ -402,3 +402,14 @@ svg { shape-rendering: crispEdges; }
 .cc-mask { width: 36px; }
 .cc-mask svg { display: block; width: 100%; }
 .static-dlg { position: fixed; left: 0; right: 0; bottom: 8px; z-index: 50; display: grid; place-items: center; }
+
+/* how to play (story panels) */
+.how-art { display: grid; place-items: center; width: 64px; min-height: 56px; }
+.how-art svg { max-width: 64px; height: auto; }
+.how-num { font-family: var(--mono); font-size: 28px; color: var(--amber); }
+.how-steps li { grid-template-columns: 64px 1fr; }
+.how-steps h3 { font-size: 16px; line-height: 1.2; }
+.break-title { font-size: 19px; }
+.break .btn-neon { min-height: 52px; }
+.break { gap: 6px; }
+@media (max-height: 580px) { .panel { height: 236px; } }

@@ -141,22 +141,47 @@ export const gapMeters = (resolved) => Math.max(1, 6 - resolved);
 
 export const formatMeters = (m) => m.toFixed(1) + 'm';
 
+/* ------------------------------------------------------------ the chase (derived) */
+
+/**
+ * Where the story is, derived from the stored state (the saved format is unchanged):
+ * 'chasing' (no pounce yet), 'caught' (correct pounce), 'on_foot' (wrong pounce or timeout),
+ * 'got_away' (never pounced and the night is over).
+ */
+export function chaseState(progress) {
+  const st = progress.pounce.status;
+  if (st === 'correct') return 'caught';
+  if (st === 'wrong') return 'on_foot';
+  return progress.phase === 'done' ? 'got_away' : 'chasing';
+}
+
+/**
+ * Metres between the cat and the thief: 5.0 before and during clue 1, then 5.0 - (resolved - 1),
+ * never below 1.0. null once the chase is over (caught, on foot, got away).
+ * It always equals the leap the pounce available right now is worth.
+ */
+export function gapForState(progress) {
+  if (chaseState(progress) !== 'chasing') return null;
+  const resolved = progress.results.length;
+  return Math.max(1, 5 - Math.max(0, resolved - 1));
+}
+
 /** Third line of the share card. */
 export function leapLine(progress) {
   const { total } = totals(progress);
   const pz = progress.pounce;
   const head =
-    pz.status === 'correct' ? `Leapt ${formatMeters(leapMeters(pz.points))}` :
-    pz.status === 'wrong' ? 'Fell short' : 'No leap';
+    pz.status === 'correct' ? `Caught the thief from ${formatMeters(leapMeters(pz.points))}` :
+    pz.status === 'wrong' ? 'The thief got away' : 'Never leapt';
   return `${head} · ${formatNumber(total)}`;
 }
 
 export function shareText(progress, domain = 'pounce.io') {
   return [
-    `Pounce · Prowl #${progress.puzzleId} · ${titleFor(progress).title}`,
+    `Pounce · Night #${progress.puzzleId} · ${titleFor(progress).title}`,
     shareLine(progress),
     leapLine(progress),
-    `Leap before you look → ${domain}`
+    `Who's under the mask? → ${domain}`
   ].join('\n');
 }
 
