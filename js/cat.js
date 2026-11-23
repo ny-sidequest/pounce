@@ -19,10 +19,10 @@ const CROUCH = {
   head: [[10, 3, 5, 3], [10, 1, 1, 2], [14, 1, 1, 2]]
 };
 
-function crouchParts({ eyeMarkup, headT = '', extra = '' } = {}) {
+function crouchParts({ eyeMarkup, headT = '', extra = '', legs = [[2, 7, 2, 1], [8, 7, 3, 1]] } = {}) {
   return `<g class="c-tail">${shape(CROUCH.tail)}</g>
     <g class="c-rear">${shape(CROUCH.rear)}</g>
-    ${shape(CROUCH.body)}
+    ${shape([CROUCH.body[0], ...legs])}
     <g class="c-head"${headT ? ` transform="${headT}"` : ''}>${shape(CROUCH.head)}${eyeMarkup ?? eyes([[11, 4, 1, 1], [13, 4, 1, 1]])}</g>${extra}`;
 }
 
@@ -41,6 +41,22 @@ const POSES = {
     draw: () => `<g class="c-tail">${shape([[0, 1, 3, 1], [0, 2, 1, 2]])}</g>
       ${shape([[3, 3, 9, 2], [2, 2, 2, 3], [0, 4, 4, 1], [13, 1, 5, 1]])}
       <g class="c-head">${shape([[12, 2, 5, 3], [12, 0, 1, 2], [16, 0, 1, 2]])}${eyes([[13, 2, 2, 2], [15, 2, 1, 2]])}</g>`
+  },
+  walk1: { w: 16, h: 8, draw: () => crouchParts({ legs: [[1, 7, 2, 1], [9, 7, 2, 1]] }) },
+  walk2: { w: 16, h: 8, draw: () => crouchParts({ legs: [[4, 7, 2, 1], [6, 7, 2, 1]] }) },
+  proud: { w: 16, h: 8, draw: () => crouchParts({ eyeMarkup: `${rect(11, 4.3, 1.4, 0.6, C.amber)}${rect(13, 4.3, 1.4, 0.6, C.amber)}` }) },
+  // falling: the cat stays upright-ish and tumbles through drawn frames (never a rotated block)
+  tumble1: {
+    w: 16, h: 8,
+    draw: () => `<g class="c-tail">${shape([[1, 0, 1, 2]])}</g>
+      ${shape([[2, 1, 3, 2], [4, 2, 3, 2], [6, 3, 3, 2], [0, 3, 2, 1], [3, 4, 1, 2]])}
+      <g class="c-head">${shape([[8, 3, 5, 3], [8, 2, 1, 1], [12, 2, 1, 1]])}${eyes([[9, 4, 1, 1], [11, 4, 1, 1]])}</g>`
+  },
+  tumble2: {
+    w: 16, h: 8,
+    draw: () => `<g class="c-tail">${shape([[0, 3, 2, 1]])}</g>
+      ${shape([[2, 3, 8, 2], [2, 1, 1, 2], [5, 1, 1, 2], [8, 1, 1, 2], [10, 1, 1, 2]])}
+      <g class="c-head">${shape([[10, 4, 4, 3], [10, 3, 1, 1], [13, 3, 1, 1]])}${eyes([[11, 5, 1, 1], [13, 5, 1, 1]])}</g>`
   },
   // ---- title poses ----
   psychic: {

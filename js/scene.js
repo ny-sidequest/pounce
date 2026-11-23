@@ -1,160 +1,182 @@
-// The rooftop scene for the game screen. One continuous world: the cat on the left roof,
-// the lurking connect on the right, a gap between them that shrinks with every clue.
-import { C, rect, stars, moon, skyline, neonSign, glyph } from './pixel.js';
+// The night scene. A row of six rooftops; the thief stands on the rightmost, the cat starts on the leftmost.
+// The WORLD STAYS PUT: only the cat moves (and the thief, when it runs). Fixed scenery, fixed layout.
+import { C, rect, stars, glyph, rng, moon } from './pixel.js';
 import { catParts } from './cat.js';
+import { thiefParts, maskParts } from './thief.js';
 import { reducedMotion } from './fx.js';
-import { gapMeters, formatMeters } from './engine.js';
 
-const VW = 360;
-const VH = 240;
-const ROOF_Y = 148;       // rooftop surface
-const LEFT_EDGE = 100;    // right edge of the cat's roof
-const RIGHT_START = 244;  // left edge of the far roof at the start (gap 6.0m = 144px)
-const M = 24;             // px per metre
-const CAT_X = 36;
-const CAT_Y = ROOF_Y - 32; // cat sprite is 8 cells (32px) tall
-const LANTERN_X = [44, 112, 180, 248, 316];
-const snap = (v) => Math.round(v / 4) * 4;
+export const VW = 360;
+export const VH = 240;
+export const ROOF_W = 54;
+const PITCH = 60;
+const X0 = 3;
+const SURF = [152, 144, 156, 142, 150, 146]; // rooftop surface heights
+const STREET = 212;
+const CELL = 3; // character pixel size
+const BINS = [30, 86, 150, 214, 278];
+export const THIEF_ROOF = 5;
+
+const roofX = (i) => X0 + PITCH * i;
+const lampX = (i) => roofX(i) + 27;
+const catXOn = (i) => roofX(i) + 3;
+const catYOn = (i) => SURF[i] - 8 * CELL;
+const THIEF_X = roofX(THIEF_ROOF) + 9;
+const THIEF_Y = SURF[THIEF_ROOF] - 19 * CELL;
+const CAUGHT = { x: roofX(THIEF_ROOF) + 5, y: SURF[THIEF_ROOF] - 12 * CELL };
+const FOOT_Y = STREET - 6;
+const footX = (step) => 22 + step * 40;
+const snap = (v) => Math.round(v / 2) * 2;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-const lurkerShape = [[3, 6, 8, 10], [1, 7, 12, 4], [4, 2, 6, 5], [4, 0, 1, 3], [9, 0, 1, 3], [0, 10, 2, 6], [12, 10, 2, 6]];
-
-function lantern(x, i) {
-  return `<g class="lantern" data-i="${i}" transform="translate(${x - 6} 12)">
+function lamp(i) {
+  return `<g class="lantern" data-i="${i}" transform="translate(${lampX(i) - 6} 40)">
     <g class="lan-halo">${rect(-8, -4, 28, 32, C.amber, 'opacity=".07"')}${rect(-4, 0, 20, 24, C.amber, 'opacity=".1"')}</g>
-    ${rect(5, -4, 2, 4, C.line)}
-    ${rect(0, 0, 12, 4, C.line)}
-    <rect class="glass" x="0" y="4" width="12" height="12" />
-    <rect class="core" x="4" y="8" width="4" height="4" />
+    ${rect(5, -4, 2, 4, C.line)}${rect(0, 0, 12, 4, C.line)}
+    <rect class="glass" x="0" y="4" width="12" height="12"/><rect class="core" x="4" y="8" width="4" height="4"/>
     ${rect(0, 16, 12, 4, C.line)}
   </g>`;
 }
 
 function wire() {
   let out = '';
-  for (let x = 0; x < VW; x += 4) {
-    const sag = Math.round(2 * Math.sin((x / VW) * Math.PI * 5));
-    out += rect(x, 8 + sag * 1, 4, 2, C.line);
-  }
+  for (let x = lampX(0) - 20; x < lampX(4) + 20; x += 4) out += rect(x, 36 + Math.round(1.5 * Math.sin(x / 40)), 4, 2, C.line);
   return out;
 }
 
-function windowsFor(x0, w, y0, h, seed) {
+function windows(i, seed) {
+  const r = rng(seed);
   let out = '';
-  let n = seed;
-  for (let wy = y0 + 12; wy < y0 + h - 12; wy += 16) {
-    for (let wx = x0 + 8; wx < x0 + w - 12; wx += 16) {
-      n = (n * 9301 + 49297) % 233280;
-      if (n / 233280 < 0.28) {
-        const f = n % 3 === 0;
-        out += rect(wx, wy, 8, 8, C.amber, `opacity=".55" class="win${f ? ' flick' : ''}"${f ? ` style="animation-delay:${((n % 90) / 10).toFixed(1)}s;animation-duration:${6 + (n % 70) / 10}s"` : ''}`);
+  for (const y of [172, 184]) {
+    for (const dx of [7, 23, 39]) {
+      if (r() < 0.42) {
+        const f = r() < 0.4;
+        out += rect(roofX(i) + dx, y, 8, 8, C.amber, `opacity=".5" class="win${f ? ' flick' : ''}"${f ? ` style="animation-delay:${(r() * 9).toFixed(1)}s;animation-duration:${(6 + r() * 8).toFixed(1)}s"` : ''}`);
       }
     }
   }
   return out;
 }
 
-function bins() {
+function buildings() {
   let out = '';
-  for (let i = 0; i < 6; i++) {
-    const x = 104 + i * 26;
-    out += `<g class="bin" style="--i:${i}" transform="translate(${x} 212)">
-      ${rect(0, 6, 20, 22, '#2E2C52')}${rect(0, 6, 20, 2, C.line)}${rect(4, 10, 2, 14, C.line)}${rect(10, 10, 2, 14, C.line)}${rect(15, 10, 2, 14, C.line)}
-      <g class="lid">${rect(-2, 2, 24, 4, '#403D6E')}${rect(8, 0, 4, 2, '#403D6E')}</g></g>`;
+  for (let i = -8; i < 14; i++) {
+    const k = ((i % 6) + 6) % 6; // the city continues past both edges
+    const x = roofX(i);
+    const s = SURF[k];
+    out += rect(x, s, ROOF_W, STREET - s, C.roof1) + rect(x, s, ROOF_W, 4, C.line);
+    if (k === 1) out += rect(x + 8, s - 14, 10, 14, C.roof1) + rect(x + 6, s - 18, 14, 4, C.line); // chimney
+    if (k === 2) out += rect(x + 36, s - 10, 8, 10, C.roof1) + rect(x + 34, s - 14, 12, 4, C.line);
+    if (k === 3) out += rect(x + 6, s - 6, 3, 6, C.roof1) + rect(x + 22, s - 6, 3, 6, C.roof1) + rect(x + 4, s - 18, 24, 12, C.roof1) + rect(x + 8, s - 22, 16, 4, C.roof1); // water tank
+    if (k === 4) out += rect(x + 40, s - 26, 2, 26, C.line) + rect(x + 34, s - 20, 14, 2, C.line); // antenna
+    if (i !== 1) out += windows(i, 5 + k * 11 + (i < 0 || i > 5 ? 3 : 0)); // building 1 carries the OPEN sign
   }
   return out;
 }
 
+function neonSign(x, y) {
+  let out = rect(x - 3, y - 3, 4 * 12 + 3, 5 * 3 + 6, C.shadow) + rect(x - 3, y - 3, 4 * 12 + 3, 2, C.line);
+  'OPEN'.split('').forEach((ch, i) => { out += glyph(ch, x + i * 12, y, 3, C.neon); });
+  return `<g class="neon">${out}</g>`;
+}
+
+function street() {
+  let out = rect(-500, STREET, VW + 1000, VH - STREET + 200, C.shadow) + rect(-500, STREET, VW + 1000, 2, C.line);
+  for (let x = -496; x < VW + 500; x += 36) out += rect(x, STREET + 22, 16, 2, C.line, 'opacity=".6"');
+  return out;
+}
+
+function bins() {
+  return BINS.map((x, i) => `<g class="bin" data-i="${i}" transform="translate(${x} ${STREET - 6})">
+    ${rect(0, 6, 20, 20, '#2E2C52')}${rect(0, 6, 20, 2, C.line)}${rect(4, 10, 2, 12, C.line)}${rect(10, 10, 2, 12, C.line)}${rect(15, 10, 2, 12, C.line)}
+    <g class="lid">${rect(-2, 2, 24, 4, '#403D6E')}${rect(8, 0, 4, 2, '#403D6E')}</g></g>`).join('');
+}
+
+function farSkyline() {
+  const r = rng(21);
+  let out = '';
+  let x = -500;
+  while (x < VW + 500) {
+    const w = (5 + Math.floor(r() * 7)) * 4;
+    const h = 64 + Math.floor(r() * 24) * 4;
+    out += rect(x, STREET - h, w, h, C.roof2);
+    if (r() < 0.35) out += rect(x + 6, STREET - h - 8, 6, 8, C.roof2);
+    for (let wy = STREET - h + 8; wy < STREET - 70; wy += 12) for (let wx = x + 5; wx < x + w - 5; wx += 10) if (r() < 0.1) out += rect(wx, wy, 4, 4, C.amber, 'opacity=".22"');
+    x += w + (r() < 0.4 ? 4 : 0);
+  }
+  return out;
+}
+
+export const escapeHTML = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
 export function createScene(host) {
-  const starsMarkup = stars(VW, 560, 100, 11, 440);
   host.innerHTML = `
   <div class="scene stars-bg">
    <svg class="scene-moon" viewBox="0 0 48 48" shape-rendering="crispEdges" aria-hidden="true">${moon(20, 22, 5)}</svg>
    <div class="stage" id="stage">
-    <svg class="scene-svg" viewBox="0 0 ${VW} ${VH}" preserveAspectRatio="xMidYMax meet" shape-rendering="crispEdges" role="img" aria-label="Two rooftops at night with a gap between them. A cat crouches on the left roof. Something lurks on the right.">
-      <g>${starsMarkup}</g>
-      <rect id="sceneGlow" x="0" y="0" width="${VW}" height="600" fill="${C.amber}" opacity="0"/>
+    <svg class="scene-svg" viewBox="0 0 ${VW} ${VH}" preserveAspectRatio="xMidYMax meet" shape-rendering="crispEdges" role="img" aria-label="A row of rooftops at night. Your cat is on one roof; the masked thief is on the far right roof.">
+      <g>${stars(VW, 560, 100, 11, 440)}</g>
+      <rect id="sceneGlow" x="-500" y="-200" width="${VW + 1000}" height="900" fill="${C.amber}" opacity="0"/>
       <g class="gnd">
-      <g>${skyline({ w: VW, h: VH, seed: 5, fill: C.roof2, minH: 72, maxH: 112, windows: 0.5, from: 90, to: VW })}</g>
-      ${rect(118, 76, 76, 164, C.roof2)}${neonSign(124, 84)}
-      ${rect(LEFT_EDGE, 200, 300, 40, C.shadow, 'opacity=".55"')}
-      <g id="bins">${bins()}</g>
-      <text class="atmo" x="106" y="196" fill="${C.dim}">don't look down</text>
-      <g id="buildingL">
-        ${rect(0, ROOF_Y, LEFT_EDGE, VH - ROOF_Y, C.roof1)}${rect(0, ROOF_Y, LEFT_EDGE, 4, C.line)}
-        ${rect(6, ROOF_Y - 16, 12, 16, C.roof1)}${rect(4, ROOF_Y - 20, 16, 4, C.line)}
-        ${rect(0, ROOF_Y - 40, 2, 40, C.line)}${rect(-6, ROOF_Y - 32, 14, 2, C.line)}
-        ${windowsFor(0, LEFT_EDGE, ROOF_Y, VH - ROOF_Y, 3)}
-      </g>
-      <g id="roofR" class="slide">
-        ${rect(RIGHT_START, ROOF_Y, 330, VH - ROOF_Y, C.roof1)}${rect(RIGHT_START, ROOF_Y, 330, 4, C.line)}
-        ${rect(RIGHT_START + 118, ROOF_Y - 24, 10, 24, C.roof1)}${rect(RIGHT_START + 116, ROOF_Y - 28, 14, 4, C.line)}
-        ${rect(RIGHT_START + 180, ROOF_Y - 28, 4, 28, C.roof1)}${rect(RIGHT_START + 172, ROOF_Y - 44, 20, 16, C.roof1)}
-        ${windowsFor(RIGHT_START, 330, ROOF_Y, VH - ROOF_Y, 9)}
-        <text class="atmo" x="${RIGHT_START + 66}" y="${ROOF_Y + 24}" text-anchor="middle" fill="${C.dim}">something lurks</text>
-      </g>
-      <g id="gapGroup">
-        <g id="gapLine" class="slide" style="transform-origin:${LEFT_EDGE}px 0">${rect(LEFT_EDGE, 130, 144, 2, C.amber, 'opacity=".75"')}${rect(LEFT_EDGE, 126, 2, 10, C.amber)}${rect(LEFT_EDGE + 142, 126, 2, 10, C.amber)}</g>
-        <text id="gapLabel" class="gap-label slide" x="${LEFT_EDGE + 72}" y="122" text-anchor="middle" fill="${C.amber}">6.0m gap</text>
-      </g>
-      <text class="atmo" x="${VW - 4}" y="${VH - 6}" text-anchor="end" fill="${C.dim}">the streetlights end here</text>
-      </g>
-      <g id="lanterns">${wire()}${LANTERN_X.map(lantern).join('')}</g>
-      <rect id="dimmer" x="0" y="0" width="${VW}" height="600" fill="${C.shadow}" opacity="0"/>
-      <g class="gnd">
-      <g id="lurkerPos" class="slide">
-        <g id="lurkerLight" style="--lit:0">${rect(RIGHT_START + 8, ROOF_Y - 84, 96, 84, C.amber, 'class="lg lg1"')}${rect(RIGHT_START + 18, ROOF_Y - 74, 76, 74, C.amber, 'class="lg lg2"')}${rect(RIGHT_START + 28, ROOF_Y - 64, 56, 64, C.amber, 'class="lg lg3"')}</g>
-        <g id="lurker" transform="translate(${RIGHT_START + 36} ${ROOF_Y - 64}) scale(4)">
-          <g class="rim">${lurkerShape.map(([x, y, w, h]) => rect(x - 0.5, y - 0.5, w + 1, h + 1, C.moon)).join('')}</g>
-          ${lurkerShape.map(([x, y, w, h]) => rect(x, y, w, h, C.shadow)).join('')}
-          <g class="qmark">${rect(4.5, 4.6, 5, 7, C.amber, 'opacity=".18"')}${glyph('?', 5.5, 5.5, 1, C.amber)}</g>
+        ${farSkyline()}
+        ${buildings()}
+        ${neonSign(roofX(1) + 5, SURF[1] + 16)}
+        ${street()}
+        <g id="bins">${bins()}</g>
+        <text class="atmo" x="6" y="208" fill="${C.dim}">don't look down</text>
+        <text id="thiefLabel" class="atmo" x="${roofX(THIEF_ROOF) + 27}" y="${SURF[THIEF_ROOF] + 18}" text-anchor="middle" fill="${C.dim}">the thief</text>
+        <g id="gapGroup">
+          <g id="gapLine" class="slide" style="transform-origin:${roofX(THIEF_ROOF)}px 0">${rect(roofX(0) + ROOF_W, 112, roofX(THIEF_ROOF) - roofX(0) - ROOF_W, 2, C.amber, 'opacity=".8"').replace('y="112"','y="116"')}${rect(roofX(0) + ROOF_W, 112, 2, 10, C.amber)}</g>
+          ${rect(roofX(THIEF_ROOF) - 2, 112, 2, 10, C.amber)}
+          <text id="gapLabel" class="gap-label slide" x="${(roofX(0) + ROOF_W + roofX(THIEF_ROOF)) / 2}" y="110" text-anchor="middle" fill="${C.amber}">5.0m gap</text>
         </g>
-        <g id="sign" opacity="0"></g>
       </g>
-      <g id="catPos" style="transform:translate(${CAT_X}px,${CAT_Y}px)">
-        <g id="catRot" class="cat-rot"><g id="catArt" transform="scale(4)"></g></g>
-      </g>
-      <g id="fallEyes" opacity="0">${rect(0, 0, 4, 4, C.amber)}${rect(12, 0, 4, 4, C.amber)}</g>
-      <text id="clatter" class="clatter" x="150" y="204" text-anchor="middle" fill="${C.amber}" opacity="0">CLATTER</text>
+      <g id="lanterns" class="gnd">${wire()}${[0, 1, 2, 3, 4].map(lamp).join('')}</g>
+      <rect id="dimmer" x="-500" y="-200" width="${VW + 1000}" height="900" fill="${C.shadow}" opacity="0"/>
+      <g class="gnd">
+        <g id="thiefLight" style="--lit:0">${rect(roofX(THIEF_ROOF) - 14, SURF[THIEF_ROOF] - 88, 76, 88, C.amber, 'class="lg lg1"')}${rect(roofX(THIEF_ROOF) - 6, SURF[THIEF_ROOF] - 78, 60, 78, C.amber, 'class="lg lg2"')}${rect(roofX(THIEF_ROOF) + 2, SURF[THIEF_ROOF] - 68, 44, 68, C.amber, 'class="lg lg3"')}</g>
+        <g id="thiefPos" style="transform:translate(${THIEF_X}px,${THIEF_Y}px)"><g id="thiefArt" transform="scale(${CELL})"></g></g>
+        <g id="maskG" opacity="0"><g id="maskArt" transform="scale(${CELL})">${maskParts()}</g></g>
+        <g id="plate" opacity="0"></g>
+        <g id="catPos" style="transform:translate(${catXOn(0)}px,${catYOn(0)}px)"><g id="catRot" class="cat-rot"><g id="catArt" transform="scale(${CELL})"></g></g></g>
+        <text id="clatter" class="clatter" x="150" y="196" text-anchor="middle" fill="${C.amber}" opacity="0">CLATTER!</text>
       </g>
     </svg>
-    <div class="lantern-labels">${LANTERN_X.map((x, i) => `<div class="ll" data-i="${i}" style="left:${(x / VW) * 100}%"><span class="sr-only">Clue ${i + 1}: not answered yet</span></div>`).join('')}</div>
+    <div class="lantern-labels">${[0, 1, 2, 3, 4].map((i) => `<div class="ll" data-i="${i}" style="left:${(lampX(i) / VW) * 100}%"><span class="sr-only">Clue ${i + 1}: not answered yet</span></div>`).join('')}</div>
    </div>
   </div>`;
 
   const $ = (s) => host.querySelector(s);
   const stage = $('#stage');
   const svg = $('.scene-svg');
-  const roofR = $('#roofR');
-  const lurkerPos = $('#lurkerPos');
+  const catPos = $('#catPos');
+  const catArt = $('#catArt');
+  const thiefPos = $('#thiefPos');
+  const thiefArt = $('#thiefArt');
+  const maskG = $('#maskG');
+  const plate = $('#plate');
   const gapLine = $('#gapLine');
   const gapLabel = $('#gapLabel');
-  const catPos = $('#catPos');
-  const catRot = $('#catRot');
-  const catArt = $('#catArt');
-  const sign = $('#sign');
-  const light = $('#lurkerLight');
+  const gapGroup = $('#gapGroup');
   const glow = $('#sceneGlow');
   const dimmer = $('#dimmer');
-  const fallEyes = $('#fallEyes');
+  const light = $('#thiefLight');
 
-  let resolved = 0;
-  let lit = 0;
-  let pose = 'crouch';
+  let cx = catXOn(0);
+  let cy = catYOn(0);
+  let roof = 0;
+  let thief = 'stand';
+  let alive = true;
+  let clatterCb = null;
 
-  /* ---------------------------------------------------------------- labels */
+  /* ----------------------------------------------------------------- layout */
   function fitLabel(el) {
     el.style.fontSize = '';
     let size = parseFloat(getComputedStyle(el).fontSize);
     let guard = 0;
-    while (el.scrollWidth > el.clientWidth + 0.5 && size > 8 && guard++ < 30) {
-      size -= 0.5;
-      el.style.fontSize = size + 'px';
-    }
+    while (el.scrollWidth > el.clientWidth + 0.5 && size > 8 && guard++ < 30) { size -= 0.5; el.style.fontSize = size + 'px'; }
   }
   const fitAll = () => host.querySelectorAll('.ll.filled').forEach(fitLabel);
-  /** Adapt the scene height to the space available: ground anchored to the bottom, lanterns to the top. */
-  const sceneEl = host.querySelector('.scene');
+  const sceneEl = $('.scene');
   function layout() {
     const cw = sceneEl.clientWidth;
     const ch = sceneEl.clientHeight;
@@ -163,177 +185,263 @@ export function createScene(host) {
     svg.setAttribute('viewBox', `0 0 ${VW} ${vh}`);
     host.querySelectorAll('.gnd').forEach((g) => g.setAttribute('transform', `translate(0 ${vh - VH})`));
     stage.style.setProperty('--vh', vh);
-    host.querySelector('.lantern-labels').style.top = `${(40 / vh) * 100}%`;
+    $('.lantern-labels').style.top = `${((vh - VH + 64) / vh) * 100}%`;
     fitAll();
   }
   new ResizeObserver(layout).observe(sceneEl);
   document.fonts?.ready.then(layout);
 
-  /* ------------------------------------------------------------------ state */
-  const slidePx = (res) => (6 - gapMeters(res)) * M; // how far the far roof has crept in
-  const edgeX = (res = resolved) => RIGHT_START - slidePx(res);
-
-  function setPose(name, cls = '') {
-    pose = name;
-    catArt.innerHTML = catParts(name);
-    catRot.setAttribute('class', `cat-rot pose-${name} ${cls}`);
+  /* ------------------------------------------------------------------ setters */
+  const place = (x, y) => { cx = x; cy = y; catPos.getAnimations().forEach((a) => a.cancel()); catPos.style.transform = `translate(${x}px,${y}px)`; };
+  const setPose = (name) => { catArt.innerHTML = catParts(name); };
+  const setThiefPoseOnly = (p) => { thiefArt.innerHTML = thiefParts(p); };
+  function setThief(state) {
+    thief = state;
+    thiefPos.style.opacity = state === 'gone' ? 0 : 1;
+    if (state === 'caught') {
+      thiefArt.innerHTML = thiefParts('caught');
+      thiefPos.getAnimations().forEach((a) => a.cancel());
+      thiefPos.style.transform = `translate(${CAUGHT.x}px,${CAUGHT.y}px)`;
+    } else {
+      thiefArt.innerHTML = thiefParts(state === 'run1' || state === 'run2' ? state : 'stand');
+      if (state === 'stand') { thiefPos.getAnimations().forEach((a) => a.cancel()); thiefPos.style.transform = `translate(${THIEF_X}px,${THIEF_Y}px)`; }
+    }
   }
-
-  function setGap(res, animate = true) {
-    resolved = res;
-    const g = gapMeters(res);
-    const px = slidePx(res);
-    const cls = animate && !reducedMotion() ? 'slide' : 'slide instant';
-    [roofR, lurkerPos, gapLine, gapLabel].forEach((e) => e.setAttribute('class', (e.getAttribute('class') || '').replace(/\bslide\b|\binstant\b/g, '').trim() + ' ' + cls));
-    roofR.style.transform = `translateX(${-px}px)`;
-    lurkerPos.style.transform = `translateX(${-px}px)`;
-    gapLine.style.transform = `scaleX(${(g * M) / 144})`;
-    gapLabel.style.transform = `translateX(${-(144 - g * M) / 2}px)`;
-    gapLabel.textContent = `${formatMeters(g)} gap`;
+  /** m = metres to the thief (5..1), or null to hide the gap line. */
+  function setGap(m) {
+    gapGroup.style.display = m == null ? 'none' : '';
+    if (m == null) return;
+    const catRight = roofX(THIEF_ROOF - Math.round(m)) + ROOF_W;
+    const full = roofX(THIEF_ROOF) - (roofX(0) + ROOF_W);
+    const now = roofX(THIEF_ROOF) - catRight;
+    gapLine.style.transform = `scaleX(${now / full})`;
+    gapLabel.style.transform = `translateX(${-(full - now) / 2}px)`;
+    gapLabel.textContent = `${m.toFixed(1)}m gap`;
   }
-
   function setLight(n) {
-    lit = n;
     light.style.setProperty('--lit', n);
-    glow.setAttribute('opacity', (n * 0.018).toFixed(3));
-    $('#lurker .rim').style.opacity = (0.08 + n * 0.1).toFixed(2);
+    glow.setAttribute('opacity', (Math.min(n, 5) * 0.011).toFixed(3));
   }
+  const dim = (on) => dimmer.setAttribute('opacity', on ? '0.62' : '0');
 
-  function lightLantern(i, answer, missed, animate = true) {
-    const l = host.querySelector(`.lantern[data-i="${i}"]`);
-    l.classList.add(missed ? 'missed' : 'lit');
-    const label = host.querySelector(`.ll[data-i="${i}"]`);
+  function lightLamp(i, answer, missed, animate = true) {
+    $(`.lantern[data-i="${i}"]`).classList.add(missed ? 'missed' : 'lit');
+    const label = $(`.ll[data-i="${i}"]`);
     label.className = `ll filled ${missed ? 'missed' : 'lit'}${animate ? ' pop' : ''}`;
     label.innerHTML = `<span class="sr-only">Clue ${i + 1}${missed ? ' (missed)' : ''}: </span>${escapeHTML(answer)}`;
     fitLabel(label);
   }
 
-  function dim(on) { dimmer.setAttribute('opacity', on ? '0.62' : '0'); }
+  /** Cat on a roof, instantly. */
+  function setCatRoof(i, pose = 'crouch') { roof = i; place(catXOn(i), catYOn(i)); setPose(pose); setGap(5 - i); }
 
-  /* ------------------------------------------------------------- animation */
+  /* ---------------------------------------------------------------- animation */
   const animate = (el, frames, opts) => el.animate(frames, opts).finished.catch(() => {});
 
-  /** pixel-snapped arc as stepped keyframes. tEnd > 1 carries the arc below the roofline (a fall). */
-  function arcFrames(x0, y0, dx, apex, tEnd, n) {
+  function arc(x0, y0, x1, y1, apex, n, t1 = 1) {
     const frames = [];
-    for (let i = 0; i <= n; i++) {
-      const t = (i / n) * tEnd;
-      frames.push({
-        transform: `translate(${snap(x0 + dx * t)}px, ${snap(y0 - 4 * apex * t * (1 - t))}px)`,
-        offset: i / n,
-        easing: 'steps(1, end)'
-      });
+    for (let k = 0; k <= n; k++) {
+      const t = (k / n) * t1;
+      frames.push({ transform: `translate(${snap(x0 + (x1 - x0) * t)}px, ${snap(y0 + (y1 - y0) * t - 4 * apex * t * (1 - t))}px)`, offset: k / n, easing: 'steps(1, end)' });
     }
     return frames;
   }
 
-  async function leapAnim({ success }) {
-    const edge = edgeX();
-    const landX = edge + 4;
-    const dx = landX - CAT_X;
-    const apex = 28 + dx * 0.16;
-    dim(false);
-    setPose('wiggle');
-    await sleep(reducedMotion() ? 0 : 140);
+  /** The cat creeps one roof closer: a small pixel hop, upright. */
+  async function hopTo(i) {
+    const x1 = catXOn(i);
+    const y1 = catYOn(i);
     setPose('leap');
-    if (reducedMotion()) {
-      catPos.style.transform = success ? `translate(${landX}px,${CAT_Y}px)` : `translate(${CAT_X}px,${CAT_Y}px)`;
-      await sleep(300);
-      return { landX };
-    }
-    if (success) {
-      const n = 10;
-      const move = animate(catPos, arcFrames(CAT_X, CAT_Y, dx, apex, 1, n), { duration: 560, fill: 'forwards' });
-      animate(catRot, [{ transform: 'rotate(-18deg)' }, { transform: 'rotate(-6deg)', offset: 0.3 }, { transform: 'rotate(0deg)', offset: 0.55 }, { transform: 'rotate(14deg)' }], { duration: 560, easing: 'steps(6)', fill: 'forwards' });
-      await move;
-      catPos.style.transform = `translate(${snap(landX)}px,${CAT_Y}px)`;
-      catPos.getAnimations().forEach((a) => a.cancel());
+    if (reducedMotion()) place(x1, y1);
+    else {
+      await animate(catPos, arc(cx, cy, x1, y1, 20, 6), { duration: 360, fill: 'forwards' });
+      place(x1, y1);
       setPose('land');
-      catRot.getAnimations().forEach((a) => a.cancel());
-      animate(catRot, [{ transform: 'scaleY(.78)' }, { transform: 'scaleY(1)' }], { duration: 160, easing: 'steps(3)' });
-    } else {
-      const reach = 0.74;
-      const n = 12;
-      const fall = animate(catPos, arcFrames(CAT_X, CAT_Y, dx * reach, apex, 1.34, n), { duration: 640, fill: 'forwards' });
-      animate(catRot, [{ transform: 'rotate(-18deg)' }, { transform: 'rotate(10deg)', offset: 0.45 }, { transform: 'rotate(150deg)', offset: 0.75 }, { transform: 'rotate(260deg)' }], { duration: 640, easing: 'steps(8)', fill: 'forwards' });
-      setTimeout(() => setPose('fall'), 280);
-      await fall;
+      await sleep(120);
     }
-    return { landX };
+    setPose('crouch');
+    roof = i;
+    setGap(5 - i);
   }
 
-  async function leapSuccess(connectName) {
-    const edge = edgeX();
-    await leapAnim({ success: true });
-    // hero beat two: the shadow falls away
-    const lurker = $('#lurker');
-    const rim = lurker.querySelector('.rim');
-    rim.style.opacity = 0;
-    if (!reducedMotion()) {
-      light.style.setProperty('--lit', 8);
-      await animate(lurker, [{ transform: `translate(${RIGHT_START + 36}px, ${ROOF_Y - 64}px) scale(4)`, opacity: 1 }, { transform: `translate(${RIGHT_START + 36}px, ${ROOF_Y - 56}px) scale(4)`, opacity: 1, offset: 0.35 }, { transform: `translate(${RIGHT_START + 36}px, ${ROOF_Y + 20}px) scale(4)`, opacity: 0 }], { duration: 420, easing: 'steps(6)', fill: 'forwards' });
-    } else {
-      lurker.style.opacity = 0;
-    }
-    showSign(connectName, !reducedMotion());
+  async function shakeThief() {
+    if (reducedMotion()) return;
+    await animate(thiefPos, [0, -3, 3, -3, 3, 0].map((dx, k) => ({ transform: `translate(${THIEF_X + dx}px,${THIEF_Y}px)`, offset: k / 5, easing: 'steps(1,end)' })), { duration: 380 });
+    thiefPos.style.transform = `translate(${THIEF_X}px,${THIEF_Y}px)`;
+  }
+
+  function showPlate(name, animateIn) {
+    const w = Math.min(150, name.length * 7.6 + 22);
+    const x = roofX(THIEF_ROOF) - 8 - w;
+    const y = 98;
+    plate.innerHTML = `${rect(x - 4, y - 4, w + 8, 38, C.amber, 'opacity=".18"')}${rect(x, y, w, 30, C.sky)}${rect(x, y, w, 2, C.amber)}${rect(x, y + 28, w, 2, C.amber)}${rect(x, y, 2, 30, C.amber)}${rect(x + w - 2, y, 2, 30, C.amber)}${rect(x + w, y + 12, 6, 2, C.amber)}
+      <text class="sign-text" x="${x + w / 2}" y="${y + 20}" text-anchor="middle" fill="${C.moon}" textLength="${w - 16}" lengthAdjust="spacingAndGlyphs">${escapeHTML(name)}</text>`;
+    plate.setAttribute('opacity', '1');
+    if (animateIn && !reducedMotion()) animate(plate, [{ transform: 'translateY(10px)', opacity: 0 }, { transform: 'translateY(-3px)', opacity: 1, offset: 0.6 }, { transform: 'translateY(0)', opacity: 1 }], { duration: 360, easing: 'steps(5)' });
+  }
+
+  function maskRest() {
+    maskG.getAnimations().forEach((a) => a.cancel());
+    maskG.setAttribute('opacity', '1');
+    $('#maskArt').setAttribute('transform', 'scale(2)');
+    maskG.style.transform = `translate(${roofX(THIEF_ROOF) + 40}px,${SURF[THIEF_ROOF] - 17}px)`;
+  }
+
+  /** Correct pounce: the cat leaps onto the thief's roof, the thief staggers, the mask flips off. */
+  async function leapCatch(name) {
+    dim(false);
+    const x1 = roofX(THIEF_ROOF) + 1;
+    const y1 = catYOn(THIEF_ROOF);
+    setPose('wiggle');
+    await sleep(reducedMotion() ? 0 : 150);
+    setPose('leap');
+    if (!reducedMotion()) await animate(catPos, arc(cx, cy, x1, y1, 34 + (x1 - cx) * 0.12, 10), { duration: 560, fill: 'forwards' });
+    place(x1, y1);
+    setPose('land');
+    await shakeThief();
+    // the mask flips off
+    maskG.setAttribute('opacity', '1');
+    $('#maskArt').setAttribute('transform', `scale(${CELL})`);
+    const mx = THIEF_X + 3 * CELL;
+    const my = THIEF_Y + 4 * CELL;
+    const rx = roofX(THIEF_ROOF) + 40;
+    const ry = SURF[THIEF_ROOF] - 17;
+    setThief('caught');
     light.style.setProperty('--lit', 8);
-    void edge;
-    await sleep(reducedMotion() ? 200 : 500);
+    if (!reducedMotion()) {
+      await animate(maskG, [
+        { transform: `translate(${mx}px,${my}px)` },
+        { transform: `translate(${mx - 10}px,${my - 26}px)`, offset: 0.4 },
+        { transform: `translate(${mx - 24}px,${my - 10}px)`, offset: 0.7 },
+        { transform: `translate(${rx}px,${ry}px)` }
+      ], { duration: 520, easing: 'steps(7)', fill: 'forwards' });
+    }
+    maskRest();
+    showPlate(name, true);
+    await sleep(reducedMotion() ? 200 : 450);
+    // the cat sits proudly on the thief
+    setPose('leap');
+    const sx = CAUGHT.x + 2;
+    const sy = CAUGHT.y - 8 * CELL + 6;
+    if (!reducedMotion()) await animate(catPos, arc(cx, cy, sx, sy, 16, 5), { duration: 300, fill: 'forwards' });
+    place(sx, sy);
+    setPose('proud');
   }
 
-  function showSign(name, animateIn) {
-    const w = Math.min(158, name.length * 8.4 + 22);
-    const cx = RIGHT_START + 64;
-    const y = ROOF_Y - 76;
-    sign.innerHTML = `${rect(cx - w / 2 - 6, y - 6, w + 12, 44, C.amber, 'opacity=".18"')}
-      ${rect(cx - w / 2, y, w, 32, C.sky)}${rect(cx - w / 2, y, w, 2, C.amber)}${rect(cx - w / 2, y + 30, w, 2, C.amber)}${rect(cx - w / 2, y, 2, 32, C.amber)}${rect(cx + w / 2 - 2, y, 2, 32, C.amber)}
-      <text class="sign-text" x="${cx}" y="${y + 21}" text-anchor="middle" fill="${C.moon}" textLength="${w - 16}" lengthAdjust="spacingAndGlyphs">${escapeHTML(name)}</text>`;
-    sign.setAttribute('opacity', '1');
-    if (animateIn) animate(sign, [{ transform: 'translateY(10px)', opacity: 0 }, { transform: 'translateY(-4px)', opacity: 1, offset: 0.6 }, { transform: 'translateY(0)', opacity: 1 }], { duration: 360, easing: 'steps(5)' });
-    $('#lurker').style.opacity = 0;
+  /** The thief runs off the right edge of the scene. */
+  async function runThief() {
+    if (thief === 'gone' || thief === 'caught') return;
+    thiefPos.getAnimations().forEach((a) => a.cancel());
+    $('#thiefLabel').style.opacity = 0;
+    if (reducedMotion()) { setThief('gone'); return; }
+    let f = 0;
+    const iv = setInterval(() => { f ^= 1; setThiefPoseOnly(f ? 'run1' : 'run2'); }, 110);
+    await animate(thiefPos, [{ transform: `translate(${THIEF_X}px,${THIEF_Y}px)` }, { transform: `translate(${VW + 60}px,${THIEF_Y}px)` }], { duration: 900, easing: 'steps(10)', fill: 'forwards' });
+    clearInterval(iv);
+    setThief('gone');
   }
 
+  /** Wrong pounce: the cat leaps, falls short, tumbles into the bins. The thief runs off. Returns the bin index. */
   async function leapFail() {
-    await leapAnim({ success: false });
-    catPos.style.transform = `translate(${CAT_X}px,${CAT_Y + 400}px)`;
-    catPos.getAnimations().forEach((a) => a.cancel());
-    const x = snap(CAT_X + (edgeX() + 4 - CAT_X) * 0.74 + 30);
-    host.querySelector('#bins').classList.add('clatter-on');
+    dim(false);
+    gapGroup.style.display = 'none';
+    const reach = cx + (roofX(THIEF_ROOF) - cx) * 0.62;
+    let bi = 0;
+    BINS.forEach((b, k) => { if (Math.abs(b + 10 - reach) < Math.abs(BINS[bi] + 10 - reach)) bi = k; });
+    const bx = BINS[bi];
+    setPose('wiggle');
+    await sleep(reducedMotion() ? 0 : 150);
+    setPose('leap');
+    if (!reducedMotion()) {
+      setTimeout(() => setPose('tumble1'), 330);
+      setTimeout(() => setPose('tumble2'), 470);
+      setTimeout(() => setPose('tumble1'), 610);
+      setTimeout(runThief, 300); // the thief notices and bolts
+      await animate(catPos, arc(cx, cy, bx + 10 - 24, STREET - 14, 30, 12), { duration: 800, fill: 'forwards' });
+    } else runThief();
+    clatterCb?.();
+    $('#bins').classList.add('clatter-on');
+    $(`.bin[data-i="${bi}"]`).style.visibility = 'hidden';
+    place(bx + 10 - 24, STREET + 18 - 30);
+    setPose('bin');
     const ct = $('#clatter');
-    ct.setAttribute('x', Math.min(300, x + 10));
+    ct.setAttribute('x', bx + 10);
     animate(ct, [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'translateY(0)', offset: 0.2 }, { opacity: 1, offset: 0.8 }, { opacity: 0 }], { duration: 1200, easing: 'steps(6)' });
-    fallEyes.setAttribute('transform', `translate(${Math.min(x, 280)} 206)`);
-    await sleep(reducedMotion() ? 200 : 900);
-    fallEyes.setAttribute('opacity', '1');
-    fallEyes.classList.add('blinking');
-    await sleep(500);
+    await sleep(reducedMotion() ? 200 : 1100);
+    return bi;
   }
 
-  /** Back to the roof after a fail (so the player can carry on). */
-  function resetCat() {
-    catPos.getAnimations().forEach((a) => a.cancel());
-    catRot.getAnimations().forEach((a) => a.cancel());
-    catPos.style.transform = `translate(${CAT_X}px,${CAT_Y}px)`;
+  /** After a wrong pounce: the cat climbs out and walks the street below, one step per clue. */
+  async function walkTo(step, animateIt = true) {
+    const x1 = footX(step);
+    const y1 = FOOT_Y - 8 * CELL + 6;
+    $('#bins').querySelectorAll('.bin').forEach((b) => { b.style.visibility = ''; });
+    if (!animateIt || reducedMotion()) { place(x1, y1); setPose('crouch'); return; }
+    let f = 0;
+    const iv = setInterval(() => { f ^= 1; setPose(f ? 'walk1' : 'walk2'); }, 140);
+    await animate(catPos, [{ transform: `translate(${cx}px,${cy}px)` }, { transform: `translate(${x1}px,${y1}px)` }], { duration: 560, easing: 'steps(8)', fill: 'forwards' });
+    clearInterval(iv);
+    place(x1, y1);
     setPose('crouch');
   }
 
-  function setRevealed(name) { showSign(name, false); setPose('land'); catPos.style.transform = `translate(${snap(edgeX() + 4)}px,${CAT_Y}px)`; light.style.setProperty('--lit', 8); }
-  function setFallen() {
-    // the pounce was spent and missed: the cat is back on the roof; bins stay tipped
-    host.querySelector('#bins').classList.add('clatter-done');
+  /* ---------------------------------------------------- instant end states (restore / storyboard) */
+  function showCaught(name) {
+    setGap(null);
+    setThief('caught');
+    maskRest();
+    showPlate(name, false);
+    setLight(8);
+    place(CAUGHT.x + 2, CAUGHT.y - 8 * CELL + 6);
+    setPose('proud');
+  }
+  function showOnFoot(step = 0) {
+    setGap(null);
+    setThief('gone');
+    $('#thiefLabel').style.opacity = 0;
+    walkTo(step, false);
+  }
+  function showInBin(bi = 2) {
+    setGap(null);
+    setThief('gone');
+    $('#thiefLabel').style.opacity = 0;
+    $(`.bin[data-i="${bi}"]`).style.visibility = 'hidden';
+    place(BINS[bi] + 10 - 24, STREET + 18 - 30);
+    setPose('bin');
+  }
+  /** A mid-fall frame, for the storyboard: tumbling cat, thief already running. */
+  function showTumble(frame = 'tumble2') {
+    setGap(null);
+    setThief('run1');
+    thiefPos.style.transform = `translate(${THIEF_X + 34}px,${THIEF_Y}px)`;
+    place(BINS[1] + 26, 176);
+    setPose(frame);
   }
 
+  /** The unmasking moment, for the storyboard: cat landed, mask mid-flip. */
+  function showUnmasking() {
+    setGap(null);
+    place(roofX(THIEF_ROOF) + 1, catYOn(THIEF_ROOF));
+    setPose('land');
+    setThief('caught');
+    setLight(8);
+    maskG.setAttribute('opacity', '1');
+    $('#maskArt').setAttribute('transform', `scale(${CELL})`);
+    maskG.style.transform = `translate(${THIEF_X + 3 * CELL - 14}px,${THIEF_Y + 4 * CELL - 28}px)`;
+  }
+
+  setThief('stand');
   setPose('crouch');
-  setGap(0, false);
+  setGap(5);
 
   return {
-    el: host, svg, stage, setPose, setGap, setLight, lightLantern, dim, leapSuccess, leapFail, resetCat, setRevealed, setFallen,
-    lanternRect: (i) => host.querySelector(`.lantern[data-i="${i}"]`).getBoundingClientRect(),
-    lurkerRect: () => $('#lurker').getBoundingClientRect(),
-    getPose: () => pose
+    el: host, svg, stage, setPose, setGap, setLight, lightLamp, dim, setCatRoof, hopTo, leapCatch, leapFail, walkTo, runThief,
+    showCaught, showOnFoot, showInBin, showTumble, showUnmasking, setThief,
+    lampRect: (i) => $(`.lantern[data-i="${i}"]`).getBoundingClientRect(),
+    thiefRect: () => thiefPos.getBoundingClientRect(),
+    onClatter: (fn) => { clatterCb = fn; },
+    getRoof: () => roof,
+    isAlive: () => alive,
+    destroy: () => { alive = false; }
   };
-}
-
-export function escapeHTML(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
