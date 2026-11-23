@@ -107,7 +107,7 @@ const CORRECT_TITLES = [
 export function titleFor(progress) {
   const p = progress.pounce;
   if (p.status === 'correct') return { ...CORRECT_TITLES[p.afterQ - 1] };
-  if (p.status === 'wrong') return { title: 'Hairball', pose: 'hairball' };
+  if (p.status === 'wrong') return { title: 'Bin diver', pose: 'bin' };
   return { title: 'Scaredy cat', pose: 'scaredy' };
 }
 
@@ -133,13 +133,30 @@ export function shareLine(progress) {
   return line;
 }
 
-export function shareText(progress, domain = 'pounce.io') {
+/** Leap distance in metres is display only: pounce value / 1000. */
+export const leapMeters = (value) => value / 1000;
+
+/** Gap to the connect, shown in metres. Always equals the leap you could make right now (6.0 before clue 1). */
+export const gapMeters = (resolved) => Math.max(1, 6 - resolved);
+
+export const formatMeters = (m) => m.toFixed(1) + 'm';
+
+/** Third line of the share card. */
+export function leapLine(progress) {
   const { total } = totals(progress);
+  const pz = progress.pounce;
+  const head =
+    pz.status === 'correct' ? `Leapt ${formatMeters(leapMeters(pz.points))}` :
+    pz.status === 'wrong' ? 'Fell short' : 'No leap';
+  return `${head} · ${formatNumber(total)}`;
+}
+
+export function shareText(progress, domain = 'pounce.io') {
   return [
-    `Pounce #${progress.puzzleId} · ${titleFor(progress).title}`,
+    `Pounce · Prowl #${progress.puzzleId} · ${titleFor(progress).title}`,
     shareLine(progress),
-    `${formatNumber(total)} / ${formatNumber(MAX_SCORE)}`,
-    domain
+    leapLine(progress),
+    `Leap before you look → ${domain}`
   ].join('\n');
 }
 
@@ -243,6 +260,9 @@ export function applyReload(p) {
   if (p.phase === 'pounce') return resolvePounce(p, { correct: false, guess: null });
   return p;
 }
+
+/** Once the pounce is spent there is no pounce break: show the result briefly and go straight on. */
+export const skipsBreak = (p) => p.phase === 'break' && p.pounce.status !== 'none';
 
 export const isComplete = (p) => p.phase === 'done';
 export const hasStarted = (p) => p.phase !== 'intro';

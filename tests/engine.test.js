@@ -56,14 +56,14 @@ test('titles', () => {
     return E.titleFor(pr).title;
   });
   assert.deepEqual(names, ['Psychic cat', 'Alley genius', 'Curious cat', 'Sleepy kitten', 'Cardboard box']);
-  assert.equal(E.titleFor({ pounce: { status: 'wrong', afterQ: 2 } }).title, 'Hairball');
+  assert.equal(E.titleFor({ pounce: { status: 'wrong', afterQ: 2 } }).title, 'Bin diver');
   assert.equal(E.titleFor({ pounce: { status: 'none' } }).title, 'Scaredy cat');
 });
 
 test('share card matches the worked example exactly', () => {
   assert.equal(
     E.shareText(worked()),
-    'Pounce #1 · Alley genius\n✅✅🐾✅⚡❌⚡\n7,665 / 10,000\npounce.io'
+    'Pounce · Prowl #1 · Alley genius\n✅✅🐾✅⚡❌⚡\nLeapt 4.0m · 7,665\nLeap before you look → pounce.io'
   );
 });
 
@@ -158,4 +158,49 @@ test('refresh rule: running question = timed out, open pounce = wrong', () => {
   assert.equal(p.pounce.status, 'wrong');
   assert.equal(p.phase, 'break');
   assert.equal(E.applyReload(p), p);
+});
+
+test('share card: redesign example (7,676) and the three leap lines', () => {
+  const p = play([
+    { q: { status: 'correct', time: 3.2 } },
+    { q: { status: 'correct', time: 2.9 }, pounce: { correct: true } },
+    { q: { status: 'correct', time: 4.1 } },
+    { q: { status: 'missed' } },
+    { q: { status: 'correct', time: 2.8 } }
+  ]);
+  p.puzzleId = 3;
+  assert.equal(E.totals(p).total, 7676);
+  assert.equal(
+    E.shareText(p),
+    'Pounce · Prowl #3 · Alley genius\n✅⚡🐾✅✅❌⚡\nLeapt 4.0m · 7,676\nLeap before you look → pounce.io'
+  );
+  const wrong = play(Array.from({ length: 5 }, (_, i) => ({ q: { status: 'correct', time: 5 }, pounce: i === 0 ? { correct: false } : undefined })));
+  assert.match(E.shareText(wrong), /\nFell short · 4,375\n/);
+  const none = E.skipFinal(play(Array.from({ length: 5 }, () => ({ q: { status: 'correct', time: 5 } }))));
+  assert.match(E.shareText(none), /\nNo leap · 4,375\n/);
+});
+
+test('leap distance and gap', () => {
+  assert.deepEqual([5000, 4000, 3000, 2000, 1000].map((v) => E.leapMeters(v)), [5, 4, 3, 2, 1]);
+  assert.deepEqual([0, 1, 2, 3, 4, 5].map(E.gapMeters), [6, 5, 4, 3, 2, 1]);
+  assert.equal(E.formatMeters(4), '4.0m');
+  // the gap equals the leap available in the break after that many clues
+  for (let n = 1; n <= 5; n++) assert.equal(E.gapMeters(n), E.leapMeters(E.pounceValue(n)));
+});
+
+test('pounce break is skipped once the pounce is spent', () => {
+  let p = E.startQuestion(E.newProgress(1));
+  p = E.resolveQuestion(p, { status: 'correct', time: 2 });
+  assert.equal(E.skipsBreak(p), false); // pounce still available: show the break
+  p = E.resolvePounce(E.openPounce(p), { correct: false });
+  assert.equal(E.skipsBreak(p), true); // wrong pounce also skips later breaks
+  p = E.resolveQuestion(E.nextClue(p), { status: 'correct', time: 2 });
+  assert.equal(E.skipsBreak(p), true);
+  assert.equal(E.canPounce(p), false);
+  assert.equal(E.nextClue(p).phase, 'question'); // auto-advance works from that state
+  // after clue 5 with the pounce spent there is no final break either
+  for (let i = 0; i < 3; i++) p = E.resolveQuestion(E.nextClue(p), { status: 'missed' });
+  assert.equal(p.results.length, 5);
+  assert.equal(p.phase, 'done');
+  assert.equal(E.skipsBreak(p), false);
 });
