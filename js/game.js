@@ -134,7 +134,10 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
   const flow = createFlow((m) => {
     game.dataset.mode = m;
     if (m !== 'question') { const a = document.activeElement; if (a && a.tagName === 'INPUT') a.blur(); } // leaving a question closes the keyboard
-    if (isMobile()) { if (m === 'question' || m === 'ready') scene.rt.pause(); else scene.rt.resume(); } // the story is paused while it is hidden
+    if (isMobile()) { // the story is paused while it is hidden or dimmed (after any pose tween has settled)
+      if (m === 'question' || m === 'ready') setTimeout(() => { if (!destroyed && !hopping && (flow.mode === 'question' || flow.mode === 'ready')) scene.rt.pause(); }, 500);
+      else scene.rt.resume();
+    }
     syncTimer();
     requestAnimationFrame(() => scene.refit());
   });

@@ -147,7 +147,8 @@ export function createScene(host) {
     const w = Math.max(cam.w, (cam.yb - cam.top + 6) / denom);
     const h = w * aspect;
     const slack = h - (cam.yb - cam.top + 24);
-    const yb = cam.yb + (aspect > 1.15 ? Math.max(0, slack) * 0.45 : 0);
+    const bias = mode === 'chase' && cw < 700 ? 0.08 : 0.45; // phones in the chase shot: the street sits just under the bins
+    const yb = cam.yb + (aspect > 1.15 ? Math.max(0, slack) * bias : 0);
     svg.setAttribute('viewBox', `${(cam.cx - w / 2).toFixed(2)} ${(yb - h).toFixed(2)} ${w.toFixed(2)} ${h.toFixed(2)}`);
     farG.setAttribute('transform', `translate(${((cam.cx - 190) * 0.3).toFixed(2)} 0)`);   // parallax: far layers drift with the camera
     midG.setAttribute('transform', `translate(${((cam.cx - 190) * 0.14).toFixed(2)} 0)`);
@@ -168,6 +169,12 @@ export function createScene(host) {
 
   function target(m = mode) {
     if (m === 'chase') {
+      if (sceneEl.clientWidth < 700) {
+        // phones: frame the cat and the thief tightly (about 1.3x): the world closes in as the gap closes; the bottom edge sits just under the bins
+        const left = catX(roof) - 66;
+        const right = THIEF_X + 40;
+        return { cx: (left + right) / 2, yb: STREET + 16, w: Math.max(210, right - left), top: THIEF_TOP };
+      }
       const left = roofX(roof) - 26;
       const right = roofRight(THIEF_ROOF) + 12;
       return { cx: (left + right) / 2, yb: 246, w: right - left, top: THIEF_TOP };
