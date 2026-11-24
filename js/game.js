@@ -20,7 +20,7 @@ import { saveProgress } from './store.js';
 import { PausableTimer, TimerGate } from './timer.js';
 import { createFlow, timerRuns } from './flow.js';
 import { recordRound } from './telemetry.js';
-import { runTimeline, clueSequence, catchSequence, fallSequence, letGoSequence } from './sequences.js';
+import { runTimeline, clueSequence, catchSequence, fallSequence, letGoSequence, T } from './sequences.js';
 
 const $ = (root, sel) => root.querySelector(sel);
 const m1 = (g) => `${g.toFixed(1)} m`;
@@ -73,6 +73,16 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
   let skipTimer = 0;
   let visHold = false;
   let shownScore = totals(p).total;
+  /* the ONE gap value: the HUD, the chase strip, the scene label and the decision text all read it, and it changes in a single frame.
+     Before clue 1 and during it the gap is 5.0 m; each "creep closer" moves the cat 1 m (and the gap with it); answering never does. */
+  const baseGap = () => {
+    const n = p.results.length;
+    const asked = p.phase === 'intro' || p.phase === 'question' ? n + 1 : Math.max(1, n);
+    return Math.max(1, 6 - asked);
+  };
+  let gapShown = baseGap();
+  const shownGap = () => gapShown;
+  let hopping = false;
 
   root.innerHTML = `
   ${rainHTML()}
@@ -232,7 +242,7 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
   /** the compact chase card: mini cat, mini thief, the gap in metres, five pips */
   function stripHTML() {
     const st = chase();
-    const g = gapForState(p);
+    const g = shownGap();
     let cat, label, dash = '#FFB238', thiefO = 1;
     if (st === 'chasing') { const x = 278 - 54 * g; cat = x; label = `${g.toFixed(1)} m`; }
     else if (st === 'caught') { cat = 262; label = 'CAUGHT'; dash = '#3DFFC8'; }
@@ -253,7 +263,7 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
     const lab = $(root, '#leapLab');
     const val = $(root, '#leapVal');
     box.className = 'hud-box hud-leap' + (st === 'on_foot' || st === 'got_away' ? ' foot' : st === 'caught' ? ' caught' : '');
-    if (st === 'chasing') { lab.textContent = 'GAP'; val.textContent = formatMeters(gapForState(p)).replace('m', ' m'); val.className = 'val'; }
+    if (st === 'chasing') { lab.textContent = 'GAP'; val.textContent = m1(shownGap()); val.className = 'val'; }
     else { lab.textContent = ''; val.textContent = st === 'caught' ? 'CAUGHT' : 'ESCAPED'; val.className = 'val state'; }
     $(root, '#pips').innerHTML = pipsHTML();
     $(root, '#strip').innerHTML = stripHTML();
@@ -277,7 +287,7 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
     if (st === 'caught') scene.showCaught();
     else if (st === 'on_foot') scene.showOnFoot(footStep());
     else if (st === 'got_away') { scene.setCatRoof(4); scene.showGone(); }
-    else scene.setCatRoof(5 - gapForState(p));
+    else scene.setCatRoof(5 - shownGap());
   }
   updateScore(false);
   updateHud();
@@ -408,7 +418,7 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
     if (!missed) { const lr = scene.lampRect(i); sparkBurst(lr.left + lr.width / 2, lr.top + lr.height / 2, { count: 14, spread: 60 }); }
     showPill(r, clue);
     const st = chase();
-    const hopTo = st === 'chasing' && 5 - gapForState(p) !== scene.getRoof() ? 5 - gapForState(p) : null;
+    const hopTo = null; // answering never moves the cat: only "creep closer" does
     await play(clueSequence({ idx: i, missed, kind: st === 'chasing' ? 'chase' : st === 'on_foot' ? 'foot' : 'caught', hopTo, footStep: footStep() }));
     hidePill();
     if (destroyed) return;
@@ -434,6 +444,7 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
   function nextWithoutTap() {
     if (destroyed || p.phase !== 'break') return;
     if (isMobile()) showReady(); else showQuestion();
+    hopCloser(); // the countdown ran out: the cat creeps closer by itself
   }
 
   /** after the pounce is spent: one card, one tap. The tap opens the keyboard, so the clue appears right here. */
@@ -476,7 +487,7 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
 
     if (p.phase === 'final') {
       panel.innerHTML = `<div class="break">
-        <h2 class="break-title">Last chance. The thief is ${m1(gapForState(p))} away.</h2>
+        <h2 class="break-title">Last chance. The thief is ${m1(shownGap())} away.</h2>
         ${pounceBtn}
         <button class="btn btn-ghost" id="skipBtn">Let it go</button></div>`;
       $(panel, '#pounceBtn').addEventListener('click', openPounceBox);
@@ -485,7 +496,7 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
       return;
     }
     panel.innerHTML = `<div class="break">
-      <div><h2 class="break-title">The thief is ${m1(gapForState(p))} away.</h2><p class="break-sub">Pounce now, or creep closer?</p></div>
+      <div><h2 class="break-title">The thief is ${m1(shownGap())} away.</h2><p class="break-sub">Pounce now, or creep closer?</p></div>
       ${pounceBtn}
       <button class="btn btn-ghost" id="nextBtn">Creep closer →</button>
       <div class="break-timer" aria-hidden="true"><div class="bt-bar"><div class="bt-fill" id="btFill"></div></div><span id="btText">Creeping closer in ${BREAK_SECONDS}s</span></div></div>`;
@@ -507,11 +518,33 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
     if (document.hidden) timer.pause();
   }
 
-  /** "Creep closer" tapped: straight to the question, the input focused inside this tap */
+  /** the cat creeps 1 m closer: the camera settles, the cat hops, then the HUD, strip and scene label all update together */
+  async function hopCloser() {
+    if (destroyed || chase() !== 'chasing' || hopping || gapShown <= 1) return;
+    const target = gapShown - 1;
+    const hopTo = 5 - target;
+    hopping = true;
+    scene.rt.resume();
+    scene.setRoof(hopTo);
+    await scene.frame('chase', T.camClose);
+    if (destroyed) return;
+    const to = scene.geo.roofCat(hopTo);
+    scene.catAnim('hop');
+    await scene.catArc(to.x, to.y, T.hop, 20, 4);
+    if (destroyed) return;
+    scene.setGapRoof(hopTo, true);
+    scene.catAnim('idle');
+    gapShown = target; hopping = false;
+    updateHud();
+    if (isMobile() && (flow.mode === 'question' || flow.mode === 'ready')) scene.rt.pause();
+  }
+
+  /** "Creep closer" tapped: straight to the question (the input focused inside this tap); the cat creeps as it appears */
   function goNext() {
     if (destroyed || p.phase !== 'break') return;
     stopTimer();
     showQuestion();
+    hopCloser();
   }
 
   /** After clue 5 the player lets the thief go: it tips its hat and runs; the cat sits down (scaredy). */
@@ -534,6 +567,7 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
     save();
     updateHud();
     pounceOpen = true;
+    game.classList.add('sheet-open'); // the decision text must not peek out behind the sheet
     scene.dim(true);
     scene.catAnim('crouch');
     pounceDlg.innerHTML = `
@@ -570,6 +604,7 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
 
   function closePounceDlg() {
     pounceOpen = false;
+    game.classList.remove('sheet-open');
     if (pounceDlg.open) pounceDlg.close();
   }
 

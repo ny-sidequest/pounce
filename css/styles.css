@@ -533,3 +533,4 @@ input:focus-visible { outline-offset: 0; }
 .copy-link { align-self: center; }
 .res-share { gap: 8px; }
 .res-better { text-wrap: balance; }
+.game.sheet-open .panel { visibility: hidden; }
