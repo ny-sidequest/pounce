@@ -3,14 +3,19 @@ import { isComplete, hasStarted, newProgress, totals, titleFor, chaseState, leap
 import { maybeReset, loadProgress, applyReloadRule, getPref, setPref } from './store.js';
 import { portrait, mountRig } from './portraits.js';
 import { homeHTML } from './home.js';
+import { pastHTML } from './past.js';
+import { CONFIG } from './config.js';
+import { tonightId, msToRollover, formatCountdown } from './tonight.js';
+import { getPercentile } from './stats.js';
 import { mountGame } from './game.js';
 import { renderResults } from './results.js';
-import { resumeAmbience } from './audio.js';
+import { resumeAmbience, isSoundOn, setSound } from './audio.js';
 
 const root = document.getElementById('app');
 let puzzles = [];
 let game = null;
 let homeRig = null;
+const soundIcon = (on) => `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/>${on ? '<path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/>' : '<path d="M17 9l4 6M21 9l-4 6"/>'}</svg>`;
 
 /* ------------------------------------------------------------------ how to */
 const HOW_INTRO = 'A new masked thief every night. Only your cat is watching.';
@@ -21,7 +26,7 @@ const HOW_STEPS = [
   { art: () => '<span class="how-num">?</span>', title: 'Every clue points to the thief.', text: 'Spot the link and pounce early.' }
 ];
 
-function showHow(returnFocus) {
+function showHow(returnFocus, onStart) {
   const dlg = document.createElement('dialog');
   dlg.className = 'modal how-dlg';
   dlg.setAttribute('aria-labelledby', 'howTitle');
@@ -36,9 +41,9 @@ function showHow(returnFocus) {
     </div>`;
   document.body.appendChild(dlg);
   dlg.showModal();
-  const close = () => { dlg.close(); dlg.remove(); setPref('seenHow', '1'); returnFocus?.focus?.(); };
-  dlg.querySelector('#howClose').addEventListener('click', close);
-  dlg.addEventListener('cancel', (e) => { e.preventDefault(); close(); });
+  const close = (go) => { dlg.close(); dlg.remove(); setPref('seenHow', '1'); if (go && onStart) onStart(); else returnFocus?.focus?.(); };
+  dlg.querySelector('#howClose').addEventListener('click', () => close(true));
+  dlg.addEventListener('cancel', (e) => { e.preventDefault(); close(false); });
 }
 
 /* --------------------------------------------------------------------- home */
@@ -48,36 +53,91 @@ function nightFor(pz) {
     const st = chaseState(p);
     const base = { id: pz.id, score: fmt(totals(p).total), title: titleFor(p).title };
     return st === 'caught'
-      ? { ...base, state: 'caught', name: pz.connect.answer, from: `${leapMeters(p.pounce.points).toFixed(1)} m` }
-      : { ...base, state: 'away' };
+      ? { ...base, state: 'caught', name: pz.connect.answer, from: `${leapMeters(p.pounce.points).toFixed(1)} m`, pounced: true }
+      : { ...base, state: 'away', pounced: p.pounce.status !== 'none' };
   }
   return { id: pz.id, state: 'new', started: !!(p && hasStarted(p)) };
 }
 
+const tonightPz = () => puzzles.find((x) => x.id === tonightId(puzzles.map((q) => q.id), new Date(), CONFIG));
+let homeTimer = 0;
+let entered = false;
+
 function renderHome() {
   document.title = 'Pounce · leap before you look';
-  root.innerHTML = homeHTML(puzzles.map(nightFor));
-  root.querySelectorAll('.poster').forEach((b) => b.addEventListener('click', () => openPuzzle(Number(b.dataset.id))));
+  const pz = tonightPz();
+  const n = nightFor(pz);
+  const state = n.state === 'new' && n.started ? 'started' : n.state;
+  const played = n.state === 'caught' || n.state === 'away';
+  root.innerHTML = homeHTML({ night: pz.id, state, score: n.score, title: n.title, leap: n.state === 'caught' ? n.from : null, pct: null, countdown: formatCountdown(msToRollover(new Date(), CONFIG.rolloverTz)), soundOn: isSoundOn() });
+  const page = root.querySelector('.home2');
+  if (!entered) { entered = true; page.classList.add('home2--enter'); }
+
   const how = root.querySelector('#howBtn');
   how.addEventListener('click', () => showHow(how));
-  const hc = root.querySelector('#homeCat');
-  if (hc) { homeRig?.destroy(); homeRig = mountRig(hc, 'cat', 'idle', 1); }
-  // the poster row opens centred on the first unplayed night
-  const wall = root.querySelector('.wall');
-  const first = [...root.querySelectorAll('.poster')].find((b) => !b.classList.contains('poster--caught') && !b.classList.contains('poster--away')) || root.querySelector('.poster');
-  if (wall && first && wall.scrollWidth > wall.clientWidth + 4) wall.scrollLeft = first.offsetLeft - (wall.clientWidth - first.offsetWidth) / 2;
+  const sound = root.querySelector('#soundBtn');
+  sound.addEventListener('click', () => { setSound(!isSoundOn()); const on = isSoundOn(); sound.setAttribute('aria-label', on ? 'Sound on' : 'Sound off'); sound.setAttribute('aria-pressed', String(on)); sound.innerHTML = soundIcon(on); });
+  root.querySelector('.hm-past').addEventListener('click', (e) => { e.preventDefault(); history.pushState({ s: 'past' }, '', '#past'); route(); });
+
+  // first visit: How to play first; its LET'S PROWL ▸ starts the chase. Return visits start straight away.
+  const start = () => openPuzzle(pz.id);
+  const begin = root.querySelector('#beginBtn');
+  if (begin) begin.addEventListener('click', () => { if (getPref('seenHow')) start(); else showHow(begin, start); });
+  root.querySelector('#resultsBtn')?.addEventListener('click', start);
+  window.removeEventListener('keydown', onHomeKey);
+  homeKey = (e) => {
+    if (e.key !== 'Enter' || !begin || !begin.isConnected || document.querySelector('dialog[open]')) return;
+    if (e.target.closest && e.target.closest('button, a, input')) return;
+    e.preventDefault(); begin.click();
+  };
+  window.addEventListener('keydown', onHomeKey);
+
+  // the countdown to the next thief; at zero the home screen becomes the next night
+  clearInterval(homeTimer);
+  const counts = root.querySelectorAll('.hm-count');
+  homeTimer = setInterval(() => {
+    if (tonightPz().id !== pz.id) { renderHome(); return; }
+    const ms = msToRollover(new Date(), CONFIG.rolloverTz);
+    counts.forEach((c) => { c.textContent = formatCountdown(ms); });
+    if (ms > 86399000 && counts.length) renderHome(); // just rolled over past midnight
+  }, 1000);
+
+  if (played) {
+    const sc = totals(loadProgress(pz.id)).total;
+    getPercentile(pz.id, sc).then((r) => { const m = root.querySelector('#hmMeta'); if (m && r) m.textContent = [n.state === 'caught' ? `Leapt ${n.from}` : '', `better than ${r.betterThanPct}%`].filter(Boolean).join(' · '); }).catch(() => {});
+  }
   window.scrollTo(0, 0);
+}
+let homeKey = null;
+const onHomeKey = (e) => homeKey?.(e);
+
+/* --------------------------------------------------------------- past nights */
+function renderPast() {
+  document.title = 'Past nights · Pounce';
+  const tid = tonightPz().id;
+  const nights = puzzles.filter((x) => x.id < tid).sort((a, b) => b.id - a.id).map(nightFor);
+  root.innerHTML = pastHTML(nights);
+  root.querySelectorAll('.poster').forEach((b) => b.addEventListener('click', () => openPuzzle(Number(b.dataset.id))));
+  root.querySelector('#pastBack').addEventListener('click', () => { if (history.state && history.state.s === 'past') history.back(); else { history.replaceState(null, '', location.pathname + location.search); route(); } });
+  window.scrollTo(0, 0);
+}
+
+function route() {
+  teardown();
+  if (location.hash === '#past') renderPast(); else renderHome();
 }
 
 /* --------------------------------------------------------------- navigation */
 function teardown() {
+  clearInterval(homeTimer);
+  window.removeEventListener('keydown', onHomeKey);
   if (homeRig) { homeRig.destroy(); homeRig = null; }
   if (game) { game.destroy(); game = null; }
 }
 
 function goHome() {
   if (history.state && history.state.s) history.back();
-  else { teardown(); renderHome(); }
+  else route();
 }
 
 function openPuzzle(id) {
@@ -101,7 +161,7 @@ function showResults(pz, p) {
   renderResults(root, pz, p, { onHome: goHome });
 }
 
-window.addEventListener('popstate', () => { teardown(); renderHome(); });
+window.addEventListener('popstate', route);
 window.addEventListener('pointerdown', resumeAmbience, { once: true });
 
 /* --------------------------------------------------------------------- boot */
@@ -118,9 +178,8 @@ async function boot() {
 
   const inProgress = puzzles.find((pz) => { const p = loadProgress(pz.id); return p && hasStarted(p) && !isComplete(p); });
   history.replaceState(null, '');
-  renderHome();
+  route();
   if (inProgress) openPuzzle(inProgress.id);
-  else if (!getPref('seenHow')) showHow();
 }
 
 boot();

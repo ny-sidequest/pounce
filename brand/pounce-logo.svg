@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="40 20 480 280" width="480" height="280" role="img" aria-label="Pounce. Leap before you look.">
+<defs>
+<filter id="glow" x="-30%" y="-60%" width="160%" height="220%"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+<filter id="lg-glow-s" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+<mask id="crescent2"><rect width="600" height="300" fill="white"/><circle cx="352" cy="72" r="40" fill="black"/></mask>
+<g id="lg-catshape">
+<path d="M-48 -6 Q-84 -34 -114 -18" fill="none"></path>
+<path d="M-40 6 L-94 22 M-46 2 L-100 8" fill="none"></path>
+<path d="M44 4 L98 8 M40 8 L92 20" fill="none"></path>
+<path d="M-52 -2 Q-24 -24 28 -16 Q50 -12 58 0 Q42 16 2 14 Q-40 14 -52 -2 Z"></path>
+<circle cx="64" cy="-14" r="15"></circle>
+<ellipse cx="78" cy="-8" rx="9" ry="6.5"></ellipse>
+<path d="M52 -24 L56 -44 L66 -28 Z M66 -28 L76 -44 L78 -22 Z"></path>
+</g>
+</defs>
+<circle cx="330" cy="90" r="50" fill="#FFB238" mask="url(#crescent2)" filter="url(#glow)"/>
+<path d="M70 168 Q190 14 410 66" stroke="#FFB238" stroke-width="2.5" stroke-dasharray="2 9" stroke-linecap="round" fill="none" opacity="0.75"/>
+<g transform="translate(262 80) rotate(-12) scale(1)">
+<use href="#lg-catshape" fill="#B79BFF" stroke="#B79BFF" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" filter="url(#lg-glow-s)"></use>
+<use href="#lg-catshape" fill="#08071A" stroke="#08071A" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"></use>
+<path d="M68 -16 Q72 -20 76 -16 Q72 -13 68 -16 Z" fill="#FFB238"></path>
+<path d="M50 -4 Q62 6 76 -2" stroke="#FF2E88" stroke-width="7" stroke-linecap="round" fill="none"></path>
+<path d="M52 -2 Q34 -30 10 -34 Q-4 -36 -14 -48" stroke="#FF2E88" stroke-width="5" stroke-linecap="round" fill="none"></path>
+<path d="M84 -8 L98 -12 M84 -6 L98 -4" stroke="#B79BFF" stroke-width="1.2" stroke-linecap="round" opacity="0.8"></path>
+</g>
+<text id="wordmark" x="280" y="236" text-anchor="middle" font-family="Audiowide, sans-serif" font-size="88" fill="#FF2E88" filter="url(#glow)" letter-spacing="2">POUNCE</text>
+<text id="tagline" x="280" y="276" text-anchor="middle" font-family="Exo 2, sans-serif" font-weight="700" font-size="15" letter-spacing="7" fill="#FFB238">LEAP BEFORE YOU LOOK</text>
+</svg>

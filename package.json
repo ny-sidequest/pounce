@@ -6,5 +6,9 @@
     "test": "node --test",
     "start": "python3 -m http.server 8000",
     "stamp": "node scripts/stamp.mjs"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "opentype.js": "^2.0.0"
   }
 }
