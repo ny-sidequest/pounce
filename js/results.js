@@ -218,6 +218,7 @@ export function renderResults(root, puzzle, p, { onHome, shareText: shareOverrid
       <button class="sq-btn" id="shareTop" aria-label="Share on WhatsApp">${ICON_SHARE}</button>
     </header>
 
+    <div class="res-left">
     <section class="res-hero" aria-labelledby="score-h">
       <div class="res-score-row">
         <h1 class="res-score" id="score-h">${numHTML(total)}</h1>
@@ -226,22 +227,9 @@ export function renderResults(root, puzzle, p, { onHome, shareText: shareOverrid
       <div class="res-rank fit">${escapeHTML(t.title)}</div>
       <p class="res-event">${escapeHTML(eventLine(p))}</p>
       ${curveSVG(stats, total, `Tonight's score distribution. Your score of ${fmt(total)}${pct == null ? '' : ` is better than ${pct} percent of players`}.`)}
-      <p class="res-better">${pct == null ? `Better than ${dash} of tonight's cats` : `Better than <em>${pct}%</em> of tonight's cats`}</p>
+      <p class="res-better">${pct == null ? `Better than ${dash} of tonight’s&nbsp;cats` : `Better than <em>${pct}%</em> of tonight’s&nbsp;cats`}</p>
       <p class="res-played">${stats ? `${fmt(stats.players)} cats played so far · final standings at midnight` : 'Loading tonight\'s stats…'}</p>
       ${note}
-    </section>
-
-    <section class="sec" aria-labelledby="ranks-h">
-      <div class="sec-head"><h2 class="sec-h" id="ranks-h">CAT RANKS</h2><span class="sec-aside">share of tonight's cats</span></div>
-      <p class="lock">${ICON_LOCK}Ranks above Stray cat are for cats who caught the thief.</p>
-      <div class="ranks">${ranksHTML(p, stats)}</div>
-    </section>
-
-    <section class="sec" aria-labelledby="trail-h">
-      <div class="sec-head"><h2 class="sec-h" id="trail-h">THE TRAIL</h2><span class="sec-aside">higher = faster</span></div>
-      ${lanternsSVG(p, stats, trailLabel(p, stats))}
-      <div class="legend"><span><i style="width:10px;height:12px;border-radius:3px;background:var(--amber)"></i>your time</span><span><i style="width:16px;height:3px;border-radius:2px;background:var(--muted)"></i>tonight's median</span></div>
-      <div class="clues">${clueCards(puzzle, p, stats)}${thiefCard(puzzle, stats)}</div>
     </section>
 
     <section class="sec res-share" id="share">
@@ -250,7 +238,22 @@ export function renderResults(root, puzzle, p, { onHome, shareText: shareOverrid
         <button class="btn btn-ghost" id="homeBtn">Home</button>
       </div>
       <button class="link-btn copy-link" id="copyBtn">Copy result</button>
-    </section>`;
+    </section>
+    </div>
+    <div class="res-right">
+    <section class="sec res-ranks" aria-labelledby="ranks-h">
+      <div class="sec-head"><h2 class="sec-h" id="ranks-h">CAT RANKS</h2><span class="sec-aside">share of tonight's cats</span></div>
+      <p class="lock">${ICON_LOCK}Ranks above Stray cat are for cats who caught the thief.</p>
+      <div class="ranks">${ranksHTML(p, stats)}</div>
+    </section>
+
+    <section class="sec res-trailsec" aria-labelledby="trail-h">
+      <div class="sec-head"><h2 class="sec-h" id="trail-h">THE TRAIL</h2><span class="sec-aside">higher = faster</span></div>
+      ${lanternsSVG(p, stats, trailLabel(p, stats))}
+      <div class="legend"><span><i style="width:10px;height:12px;border-radius:3px;background:var(--amber)"></i>your time</span><span><i style="width:16px;height:3px;border-radius:2px;background:var(--muted)"></i>tonight's median</span></div>
+      <div class="clues">${clueCards(puzzle, p, stats)}${thiefCard(puzzle, stats)}</div>
+    </section>
+    </div>`;
     page.querySelectorAll('#shareBtn, #shareTop').forEach((b) => b.addEventListener('click', () => shareWhatsApp(textNow())));
     page.querySelector('#copyBtn').addEventListener('click', () => copyResult(textNow()));
     page.querySelectorAll('#homeBtn, #backBtn').forEach((b) => b.addEventListener('click', onHome));

@@ -382,7 +382,7 @@ input:focus-visible { outline-offset: 0; }
 .thief-card .stat b { color: #FFF4D6; }
 .thief-card .w { font-family: var(--long); font-size: 12px; color: #E9DEC0; }
 .share-card { margin: 0; padding: 16px; text-align: center; white-space: pre-line; background: var(--ink); border: 1px solid var(--border); border-radius: 14px; font-family: var(--long); font-size: 14px; line-height: 1.7; color: var(--moon); user-select: all; }
-.res-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.res-actions { display: grid; grid-template-columns: 1.6fr 1fr; gap: 10px; }
 .res-actions .btn { width: 100%; min-height: 52px; }
 .res-actions .btn-neon { font-family: var(--ui); font-weight: 600; font-size: 17px; }
 .skel { opacity: .5; }
@@ -493,8 +493,9 @@ input:focus-visible { outline-offset: 0; }
 
 /* ---- desktop (>= 900px): the scene is full-bleed; HUD overlays its corners; trail + question sit in one card over the street ---- */
 @media (min-width: 900px) {
+  .game { --scene-h: clamp(260px, calc(100dvh - 360px), 62dvh); }
   .game { display: block; position: relative; height: 100dvh; max-width: none; padding: 0; overflow: hidden; }
-  .scene-host { position: absolute; inset: 0 0 auto 0; height: 62dvh; display: block; transition: height .4s ease-out; }
+  .scene-host { position: absolute; inset: 0 0 auto 0; height: var(--scene-h); display: block; transition: height .4s ease-out; }
   .scene { position: absolute; inset: 0; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; --safe-top: 132px; }
   .topline { position: absolute; z-index: 5; left: 16px; right: 16px; top: 12px; margin: 0; height: 44px; pointer-events: none; justify-content: flex-start; gap: 12px; }
   .topline > * { pointer-events: auto; }
@@ -508,8 +509,8 @@ input:focus-visible { outline-offset: 0; }
   .lamps { top: 12px; gap: 36px; }
   .lamp { width: 34px; height: 54px; }
   .scene-moon { width: 84px; height: 84px; top: 74px; left: 22%; }
-  .card { position: absolute; z-index: 6; left: 50%; top: calc(62dvh - 44px); width: min(720px, 94vw); transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; flex: none; transition: transform .4s ease-out, opacity .3s ease-out; }
-  .panel { flex: none; min-height: 248px; padding: 12px 14px; background: var(--panel-deep); border: 1px solid var(--border); border-radius: 18px; }
+  .card { position: absolute; z-index: 6; left: 50%; top: calc(var(--scene-h) - 44px); width: min(720px, 94vw); transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; flex: none; transition: transform .4s ease-out, opacity .3s ease-out; }
+  .panel { flex: none; min-height: 230px; padding: 12px 14px; background: var(--panel-deep); border: 1px solid var(--border); border-radius: 18px; }
   .qpanel { background: transparent; border-color: transparent; box-shadow: none; padding: 6px 4px; }
   .trail { height: 60px; }
   .game.hero .scene-host { flex: none; height: 100dvh; }
@@ -541,3 +542,24 @@ input:focus-visible { outline-offset: 0; }
 .res-share { gap: 8px; }
 .res-better { text-wrap: balance; }
 .game.sheet-open .panel { visibility: hidden; }
+
+/* ---- desktop and visual nits ---- */
+@media (min-width: 700px) {
+  .game[data-mode='story'] .panel { display: none; }          /* no empty card under the scene while a beat plays */
+  .game[data-mode='story'] .card { gap: 0; }
+}
+@media (min-width: 900px) { #lookLabel { display: none; } }   /* the sign sat under the answer chips on desktop */
+.home-sky { -webkit-mask-image: radial-gradient(ellipse 75% 190px at 50% 140px, transparent 50%, #000 100%); mask-image: radial-gradient(ellipse 75% 190px at 50% 140px, transparent 50%, #000 100%); }
+/* the CAUGHT stamp sits at the lower right of the portrait, clear of WANTED and the score */
+.poster .stamp { top: 118px; right: 10px; }
+
+/* results: two columns on wide screens (left sticky: the score, share; right: ranks, trail) */
+.res { display: flex; flex-direction: column; }
+.res-left, .res-right { display: contents; }
+.res-top { order: 0; } .res-hero { order: 1; } .res-ranks { order: 2; } .res-trailsec { order: 3; } .res-share { order: 4; }
+@media (min-width: 1024px) {
+  .res { display: grid; max-width: 1100px; grid-template-columns: minmax(340px, 420px) 1fr; column-gap: 56px; row-gap: 36px; align-items: start; }
+  .res-top { grid-column: 1 / -1; }
+  .res-left { display: flex; flex-direction: column; gap: 36px; position: sticky; top: 20px; grid-column: 1; }
+  .res-right { display: flex; flex-direction: column; gap: 36px; grid-column: 2; }
+}
