@@ -26,6 +26,7 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
+html.playing, html.playing body { overflow: hidden; overscroll-behavior: none; }
 body {
   margin: 0; min-height: 100dvh; background: var(--night); color: var(--moon);
   font-family: var(--ui); font-weight: 500; -webkit-tap-highlight-color: transparent; overflow-x: hidden;
@@ -437,16 +438,33 @@ input:focus-visible { outline-offset: 0; }
   .game[data-mode='question'] .qpanel { margin: 0; }
   .game[data-mode='question'] .panel { padding-top: 14px; }
 
-  /* the keyboard (about 300px) leaves ~470px: tighten so the strip, question, timer and input all stay in view */
-  @media (max-height: 600px) {
-    .topline { height: 44px; }
-    .strip { padding: 6px 12px; gap: 4px; }
-    .game[data-mode='question'] .panel { padding-top: 8px; padding-bottom: 8px; }
-    .qpanel { padding: 12px 14px; gap: 8px; }
-    .q-text { font-size: 20px; margin: 0; }
-    .answer-form input, .answer-form .btn { height: 48px; }
-    .timer-num { font-size: 22px; }
-  }
+  /* the document never scrolls during play; the game covers exactly the visible area above the keyboard */
+  .game { position: fixed; inset: 0 auto auto 0; width: 100%; }
+
+  /* compact layouts by VISIBLE height (--vvh), not by width */
+  .game[data-h='mid'] .topline { height: 44px; }
+  .game[data-h='mid'] .strip { padding: 0 16px; background: none; border: 0; gap: 0; }
+  .game[data-h='mid'] .strip svg { height: 24px; width: auto; max-width: 100%; margin: 0 auto; }
+  .game[data-h='mid'] .strip-row { display: none; }
+  .game[data-h='mid'][data-mode='question'] .panel, .game[data-h='low'][data-mode='question'] .panel { padding: 8px 16px; }
+  .game[data-h='mid'] .qpanel, .game[data-h='low'] .qpanel { padding: 12px 14px; gap: 8px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; column-gap: 10px; }
+  .game[data-h='mid'] .q-meta, .game[data-h='low'] .q-meta { display: contents; }
+  .game[data-h='mid'] .q-num, .game[data-h='low'] .q-num { grid-column: 1; grid-row: 1; }
+  .game[data-h='mid'] .strand, .game[data-h='low'] .strand { grid-column: 2; grid-row: 1; }
+  .game[data-h='mid'] .timer-num, .game[data-h='low'] .timer-num { grid-column: 3; grid-row: 1; font-size: 22px; }
+  .game[data-h='mid'] .q-text, .game[data-h='low'] .q-text { grid-column: 1 / -1; font-size: 20px; margin: 0; }
+  .game[data-h='mid'] .answer-form, .game[data-h='low'] .answer-form, .game[data-h='mid'] .tries, .game[data-h='low'] .tries { grid-column: 1 / -1; }
+  .game[data-h='mid'] .answer-form input, .game[data-h='mid'] .answer-form .btn, .game[data-h='low'] .answer-form input, .game[data-h='low'] .answer-form .btn { height: 48px; }
+  .game[data-h='low'] .strip { display: none !important; }
+  .game[data-h='low'] .topline { height: 40px; }
+  .game[data-h='low'] .q-text { font-size: 18px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .game[data-h='low'] .tries { display: none; }
+  .game[data-h='low'] .answer-form input, .game[data-h='low'] .answer-form .btn { height: 44px; }
+  /* the pounce sheet gets the same treatment */
+  html[data-vh='mid'] .pounce-dlg .dlg-box, html[data-vh='low'] .pounce-dlg .dlg-box { padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); }
+  html[data-vh='mid'] .pb-sub, html[data-vh='low'] .pb-sub, html[data-vh='low'] #pBack { display: none; }
+  html[data-vh='low'] .pounce-dlg h2 { font-size: 16px; }
+  html[data-vh='low'] .pounce-dlg .pb-msg { min-height: 0; margin: 2px 0 0; }
 }
 @keyframes scene-in { from { opacity: 0; } }
 

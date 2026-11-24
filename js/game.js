@@ -134,22 +134,40 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
   }
 
   /* ----------------------------------------------------- keyboard / visible-viewport sizing */
+  document.documentElement.classList.add('playing');
   const vv = window.visualViewport;
   let baseVV = vv ? vv.height : window.innerHeight;
   const rootStyle = document.documentElement.style;
-  function onViewport() {
-    if (!vv) return;
-    baseVV = Math.max(baseVV, vv.height);
+  let vpRaf = 0;
+  /** size the game from the VISIBLE viewport (above the keyboard), not from CSS viewport units */
+  function applyViewport() {
+    vpRaf = 0;
+    const h = vv ? vv.height : window.innerHeight;
+    const top = vv ? vv.offsetTop : 0;
+    baseVV = Math.max(baseVV, h);
     if (isMobile()) {
-      rootStyle.setProperty('--vvh', vv.height + 'px');
-      rootStyle.setProperty('--vvt', vv.offsetTop + 'px');
-      game.style.transform = vv.offsetTop ? `translateY(${vv.offsetTop}px)` : '';
-    } else { rootStyle.removeProperty('--vvh'); rootStyle.removeProperty('--vvt'); game.style.transform = ''; }
-    game.classList.toggle('kbd', vv.height < baseVV * 0.8);
+      rootStyle.setProperty('--vvh', h + 'px');
+      rootStyle.setProperty('--vvt', top + 'px');
+      game.style.transform = top ? `translateY(${top}px)` : '';
+      const tier = h >= 480 ? 'full' : h >= 380 ? 'mid' : 'low';
+      game.dataset.h = tier; document.documentElement.dataset.vh = tier;
+      if (window.scrollY || document.scrollingElement.scrollTop) window.scrollTo(0, 0); // undo any scroll the browser added
+    } else { rootStyle.removeProperty('--vvh'); rootStyle.removeProperty('--vvt'); game.style.transform = ''; delete game.dataset.h; delete document.documentElement.dataset.vh; }
+    game.classList.toggle('kbd', h < baseVV * 0.8);
+    fitQuestion();
+  }
+  const onViewport = () => { if (!vpRaf) vpRaf = requestAnimationFrame(applyViewport); };
+  /** a long clue shrinks (down to 15px) until the whole card fits the space it has; never taller than the screen */
+  function fitQuestion() {
+    const q = panel.querySelector('.q-text');
+    if (!q || !isMobile()) { if (q) q.style.fontSize = ''; return; }
+    q.style.fontSize = '';
+    let size = parseFloat(getComputedStyle(q).fontSize);
+    for (let i = 0; i < 20 && panel.scrollHeight > panel.clientHeight + 1 && size > 15; i++) { size -= 1; q.style.fontSize = size + 'px'; }
   }
   vv?.addEventListener('resize', onViewport);
   vv?.addEventListener('scroll', onViewport);
-  onViewport();
+  applyViewport();
   const keyboardOpen = () => !!vv && vv.height < baseVV * 0.85;
   /** blur the focused input, then wait (briefly) for the keyboard to finish closing before the scene expands */
   async function closeKeyboard() {
@@ -324,6 +342,7 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
     $(panel, '#goBtn').addEventListener('pointerdown', (e) => e.preventDefault()); // keep the keyboard open
     $(panel, '#aform').addEventListener('submit', (e) => { e.preventDefault(); submitAnswer(input, clue); });
     input.focus({ preventScroll: true }); // inside the tap handler: the keyboard opens at once
+    fitQuestion();
     announce(`Clue ${i + 1}. ${clue.q}`);
     // the clock starts once the clue is on screen: straight away after a tap on the ready card
     const delay = fromReady ? 0 : afterHero ? 520 : 260;
@@ -720,6 +739,7 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
     document.removeEventListener('visibilitychange', onVisibility);
     rootStyle.removeProperty('--vvh');
     rootStyle.removeProperty('--vvt');
+    document.documentElement.classList.remove('playing'); delete document.documentElement.dataset.vh;
     scene.destroy();
     if (p.phase === 'question' || p.phase === 'pounce') { p = applyReload(p); save(); }
     document.querySelectorAll('.fx-layer, .float-points').forEach((n) => n.remove());
