@@ -194,8 +194,8 @@ const fxLayer = el('g', {}, world);
 
 /* ---------------------------- the cat: body, head, 2 ears, 4 legs, 3 tail segments, 5 scarf segments */
 const cat = { x: 160, y: 250, rot: 0, sx: 1, sy: 1, torsoY: 0, torsoRot: 0, headRot: 0, earL: 0, earR: 0,
-  legBF: 0, legBN: 0, legFF: 0, legFN: 0, legScale: 1, tailBase: 200, tailAmp: 14, tailSpeed: 3, blink: 0, lid: 0, eyeScale: 1, bug: 0, dazed: 0, bang: 0, peel: 0,
-  mode: 'idle', wiggle: 0, scarfUp: 0, vx: 0, vy: 0, px: 160, py: 250, flash: 0, swat: 0 };
+  legBF: 0, legBN: 0, legFF: 0, legFN: 0, legScale: 1, tailBase: 200, tailCurl: 0, tailAmp: 14, tailSpeed: 3, blink: 0, lid: 0, eyeScale: 1, bug: 0, dazed: 0, bang: 0, peel: 0,
+  mode: 'idle', wiggle: 0, scarfUp: 0, attach: false, cs: 1, vx: 0, vy: 0, px: 160, py: 250, flash: 0, swat: 0 };
 const catParts = {};
 {
   const root = el('g', {}, catLayer); catParts.root = root;
@@ -230,25 +230,38 @@ const catParts = {};
   el('path', { d: 'M-12 -12 C-16 -6 -14 -2 -10 0 C-10 -4 -9 -7 -6 -8 Z', fill: '#E0BC2A', stroke: '#B8962A', 'stroke-width': 1.2 }, catParts.peel);
   catParts.bangG = el('g', { opacity: 0 }, hg);
   el('rect', { x: 24, y: -52, width: 7, height: 20, rx: 3.5, fill: '#F4E7C3', stroke: '#05040C', 'stroke-width': 1.4 }, catParts.bangG); el('circle', { cx: 27.5, cy: -24, r: 4, fill: '#F4E7C3', stroke: '#05040C', 'stroke-width': 1.4 }, catParts.bangG);
-  // scarf: a wrap + 5 tail segments
-  catParts.scarfWrap = el('path', { d: 'M18 -52 Q36 -44 40 -36 Q42 -30 36 -30 Q28 -32 14 -40 Z', fill: 'url(#gScarf)', stroke: 'url(#rimPink)', 'stroke-width': 1.3 }, root);
-  catParts.scarf = [0, 1, 2, 3, 4].map((i) => el('path', { fill: i % 2 ? 'url(#gScarf2)' : 'url(#gScarf)', stroke: 'url(#rimPink)', 'stroke-width': 1.1, 'stroke-linejoin': 'round' }, root));
+  // scarf: a flat band that wraps the neck (partly behind the head) + a small knot at the back of the neck.
+  // The two ribbon tails are drawn in world space (see updateScarf), behind or in front of the body.
+  const band = el('g', {}, root); catParts.band = band; root.insertBefore(band, hg);
+  el('path', { d: 'M5 -40 C13 -27 30 -22 47 -27 L47 -22 C29 -16 10 -21 2 -36 Z', fill: '#C2306F' }, band);                    // underside shade
+  el('path', { d: 'M7 -50 C15 -38 31 -33 47 -37 L48 -26 C30 -20 13 -27 4 -42 Z', fill: '#FF4F9A' }, band);                     // the band
+  el('path', { d: 'M9 -49 C17 -38 31 -34 46 -36', fill: 'none', stroke: '#FF9CC8', 'stroke-width': 1.3, 'stroke-linecap': 'round', opacity: 0.8 }, band);
+  el('path', { d: 'M10 -41 C18 -32 31 -28 46 -30', fill: 'none', stroke: '#C2306F', 'stroke-width': 1.2, 'stroke-linecap': 'round', opacity: 0.75 }, band);   // soft fold line
+  el('ellipse', { cx: 11, cy: -45, rx: 6.5, ry: 5.6, fill: '#FF4F9A', stroke: '#FFD6E8', 'stroke-opacity': 0.5, 'stroke-width': 1 }, band);                  // knot
+  el('path', { d: 'M6 -43 C9 -39 14 -39 17 -42 C16 -38 12 -36 8 -38 Z', fill: '#C2306F' }, band);
+  el('path', { d: 'M8 -48 C10 -50 13 -50 15 -48', fill: 'none', stroke: '#FF9CC8', 'stroke-width': 1, 'stroke-linecap': 'round' }, band);
 }
-const scarfAng = [90, 90, 90, 90, 90];
 const tailAng = [200, 200, 200];
 
+/** a point in the cat's local space after the torso's lean/wiggle (pivot at the hips), so head, legs, band, tail and knot all follow the body */
+const torsoPt = (x, y) => {
+  const ty = cat.torsoY; const a = rad(cat.torsoRot + cat.wiggle); const c = Math.cos(a); const sn = Math.sin(a);
+  const px = -30; const py = -34 + ty; const dx = x - px; const dy = (y + ty) - py;
+  return [px + dx * c - dy * sn, py + dx * sn + dy * c];
+};
 const catApply = () => {
   const s = cat;
   const breathe = s.mode === 'idle' ? Math.sin(clock.t / 1000 * 2.3) * 1 : 0;
-  catParts.root.setAttribute('transform', `translate(${s.x.toFixed(2)} ${s.y.toFixed(2)}) rotate(${s.rot.toFixed(2)}) scale(${s.sx.toFixed(3)} ${s.sy.toFixed(3)})`);
+  const sxx = s.sx * s.cs; const syy = s.sy * s.cs;
+  catParts.root.setAttribute('transform', `translate(${s.x.toFixed(2)} ${s.y.toFixed(2)}) rotate(${s.rot.toFixed(2)}) scale(${sxx.toFixed(3)} ${syy.toFixed(3)})`);
   const ty = s.torsoY;
-  catParts.torso.setAttribute('transform', `translate(0 ${ty.toFixed(2)}) rotate(${(s.torsoRot + s.wiggle).toFixed(2)} -30 -34) scale(1 ${(1 + breathe * 0.014).toFixed(4)})`);
-  const legT = (hx, ang, i) => `translate(${hx} ${(-30 + ty).toFixed(2)}) rotate(${ang.toFixed(2)}) scale(1 ${clamp((30 - ty) / 30 * s.legScale, 0.35, 1.3).toFixed(3)})`;
-  catParts.legBF.setAttribute('transform', legT(-26, s.legBF));
-  catParts.legBN.setAttribute('transform', legT(-18, s.legBN));
-  catParts.legFF.setAttribute('transform', legT(20, s.legFF));
-  catParts.legFN.setAttribute('transform', legT(26, s.legFN));
-  catParts.head.setAttribute('transform', `translate(32 ${(-54 + ty - breathe * 0.5).toFixed(2)}) rotate(${s.headRot.toFixed(2)})`);
+  const tT = `translate(0 ${ty.toFixed(2)}) rotate(${(s.torsoRot + s.wiggle).toFixed(2)} -30 -34)`;
+  catParts.torso.setAttribute('transform', `${tT} scale(1 ${(1 + breathe * 0.014).toFixed(4)})`);
+  catParts.band.setAttribute('transform', tT);
+  const leg = (g, hx, ang) => { const [lx, ly] = torsoPt(hx, -30); g.setAttribute('transform', `translate(${lx.toFixed(2)} ${ly.toFixed(2)}) rotate(${ang.toFixed(2)}) scale(1 ${clamp((-ly - 2) / 28 * s.legScale, 0.35, 3).toFixed(3)})`); };
+  leg(catParts.legBF, -26, s.legBF); leg(catParts.legBN, -18, s.legBN); leg(catParts.legFF, 20, s.legFF); leg(catParts.legFN, 26, s.legFN);
+  const [hx, hy] = torsoPt(32, -54 - breathe * 0.5);
+  catParts.head.setAttribute('transform', `translate(${hx.toFixed(2)} ${hy.toFixed(2)}) rotate(${(s.headRot + s.torsoRot * 0.35).toFixed(2)})`);
   catParts.earL.setAttribute('transform', `rotate(${s.earL.toFixed(2)} -6 -12)`);
   catParts.earR.setAttribute('transform', `rotate(${s.earR.toFixed(2)} 10 -12)`);
   const bl = clamp(s.blink + s.lid * 0.5, 0, 1);
@@ -269,34 +282,127 @@ function catUpdate(dt) {
   // tail: 3 segments with follow-through
   const swish = s.mode === 'idle' || s.mode === 'crouch';
   for (let i = 0; i < 3; i++) {
-    const target = s.tailBase + (swish ? Math.sin(sec * s.tailSpeed - i * 0.9) * s.tailAmp * (0.5 + i * 0.5) : 0) + i * 6 * (s.mode === 'leap' ? -1 : 1);
+    const target = s.tailBase + i * s.tailCurl + (swish ? Math.sin(sec * s.tailSpeed - i * 0.9) * s.tailAmp * (0.5 + i * 0.5) : 0) + i * 6 * (s.mode === 'leap' ? -1 : 1);
     tailAng[i] += (target - tailAng[i]) * (1 - Math.exp(-dt / (36 + i * 42)));
   }
-  const tp = chain([-44, -36 + s.torsoY], tailAng, [24, 22, 20]);
+  const tp = chain(torsoPt(-44, -36), tailAng, [24, 22, 20]);
   const tw = [[8, 6.4], [6.4, 4.8], [4.8, 3]];
   catParts.tail.forEach((p, i) => p.setAttribute('d', capsule(tp[i][0], tp[i][1], tp[i + 1][0], tp[i + 1][1], tw[i][0], tw[i][1])));
-  // scarf: 5 segments, each lagging more than the last (follow-through)
-  const speed = Math.hypot(s.vx, s.vy);
-  const wind = clamp(speed / 500, 0, 1);
-  const phi = (Math.atan2(-s.vy, -s.vx) * 180) / Math.PI;       // trail opposite to the motion (world)
-  const down = 90; const up = 255;
-  let tgtWorld = lerpAngle(down, phi, wind);
-  tgtWorld = lerpAngle(tgtWorld, up, s.scarfUp);
-  const base = [26, -42 + s.torsoY];
-  for (let i = 0; i < 5; i++) {
-    const wave = Math.sin(sec * 5 - i * 0.9) * (3 + i * 2.2) * (0.4 + wind);
-    const target = tgtWorld - s.rot + wave;
-    scarfAng[i] = lerpAngle(scarfAng[i], target, 1 - Math.exp(-dt / (28 + i * 34)));
-  }
-  const sp = chain(base, scarfAng, [13, 13, 12, 12, 11]);
-  const sw = [[7, 6.4], [6.4, 5.8], [5.8, 5], [5, 4.2], [4.2, 3.2]];
-  catParts.scarf.forEach((p, i) => p.setAttribute('d', capsule(sp[i][0], sp[i][1], sp[i + 1][0], sp[i + 1][1], sw[i][0], sw[i][1])));
+  updateScarf(dt);
 }
+
+/* ---------------------------- scarf: two flat ribbon tails, a 6-point verlet chain each, drawn as one smooth closed path */
+const KNOT = [12, -44];                      // knot position in the cat's local space (back-left of the neck)
+const TAILS = [
+  { L: 46, w0: 10, w1: 5, ph: 0.0, rest: -0.35, p: [], q: [], el: null, front: false },
+  { L: 34, w0: 9, w1: 4.5, ph: 2.2, rest: 0.05, p: [], q: [], el: null, front: false }
+];
+for (const t of TAILS) { t.el = el('path', { fill: '#FF4F9A', stroke: '#FFD6E8', 'stroke-opacity': 0.55, 'stroke-width': 0.9, 'stroke-linejoin': 'round' }, catParts.root); catParts.root.insertBefore(t.el, catParts.band); }
+// ribbons are simulated in world space and drawn in the cat's local space: behind the band/head when trailing, in front of the head when swinging forward
+function toLocal(pt) {
+  const s = cat; const r = rad(s.rot); const c = Math.cos(r); const sn = Math.sin(r);
+  const dx = pt[0] - s.x; const dy = pt[1] - s.y;
+  return [(c * dx + sn * dy) / (s.sx * s.cs), (-sn * dx + c * dy) / (s.sy * s.cs)];
+}
+function knotWorld() {
+  const s = cat; const r = rad(s.rot); const c = Math.cos(r); const sn = Math.sin(r);
+  const [kx, ky] = torsoPt(KNOT[0], KNOT[1]);
+  const lx = kx * s.sx * s.cs; const ly = ky * s.sy * s.cs;
+  return [s.x + c * lx - sn * ly, s.y + sn * lx + c * ly];
+}
+let knotPrev = null; let scarfReady = false;
+function scarfReset() {
+  const k = knotWorld(); knotPrev = k.slice(); scarfReady = true;
+  for (const t of TAILS) {
+    const seg = t.L / 5; t.p = []; t.q = [];
+    for (let i = 0; i < 6; i++) { const pt = [k[0] + (t.rest * i * seg), k[1] + i * seg * 0.95]; t.p.push(pt); t.q.push(pt.slice()); }
+  }
+}
+function updateScarf(dt) {
+  if (!scarfReady) scarfReset();
+  const s = cat; const sec = clock.t / 1000;
+  const K = knotWorld();
+  const sdt = Math.max(dt, 1) / 1000;
+  const kv = [(K[0] - knotPrev[0]) / sdt, (K[1] - knotPrev[1]) / sdt];
+  knotPrev = K.slice();
+  const sp = Math.hypot(kv[0], kv[1]);
+  if (sp > 3500) { scarfReset(); }                         // a teleport (sequence jump): don't whip the ribbon
+  const SUB = 2; const h = sdt / SUB;
+  const damp = Math.pow(0.85, (sdt * 1000) / 16.67 / SUB);
+  for (let step = 0; step < SUB; step++) {
+    for (const t of TAILS) {
+      const rest = t.L / 5;
+      t.p[0] = K.slice(); t.q[0] = K.slice();
+      for (let i = 1; i < 6; i++) {
+        const p = t.p[i]; const q = t.q[i];
+        let ax = -70 * (1 - i / 10) + t.rest * 40;         // hangs slightly back
+        let ay = 520;                                      // light gravity
+        const push = 0.34 * h;                              // pushed opposite to the cat's velocity (trail in a leap, stream up in a fall)
+        ay -= s.scarfUp * 1500;
+        if (s.mode === 'idle') ax += Math.sin(sec * 2.3 + t.ph + i * 0.5) * 45 * (i / 5);   // sways with the breathing
+        const vx = (p[0] - q[0]) * damp; const vy = (p[1] - q[1]) * damp;
+        q[0] = p[0]; q[1] = p[1];
+        p[0] += vx + ax * h * h - kv[0] * push * (i / 5); p[1] += vy + ay * h * h - kv[1] * push * (i / 5);
+      }
+      for (let it = 0; it < 5; it++) for (let i = 1; i < 6; i++) {
+        const a = t.p[i - 1]; const b = t.p[i];
+        let dx = b[0] - a[0]; let dy = b[1] - a[1]; const l = Math.hypot(dx, dy) || 1e-6; const diff = (l - rest) / l;
+        if (i === 1) { b[0] -= dx * diff; b[1] -= dy * diff; } else { a[0] += dx * diff * 0.5; a[1] += dy * diff * 0.5; b[0] -= dx * diff * 0.5; b[1] -= dy * diff * 0.5; }
+      }
+      for (let i = 2; i < 6; i++) {                         // a little bending stiffness: smooth, cloth-like arcs, no kinks
+        const a = t.p[i - 2]; const b = t.p[i - 1]; const c = t.p[i];
+        c[0] += (2 * b[0] - a[0] - c[0]) * 0.12; c[1] += (2 * b[1] - a[1] - c[1]) * 0.12;
+      }
+      t.p[0] = K.slice();
+    }
+  }
+  const f = (n) => n.toFixed(1);
+  for (const [ti, t] of TAILS.entries()) {
+    // Catmull-Rom through the chain, then offset by the taper width to build the ribbon outline
+    const P = t.p; const D = [];
+    for (let i = 0; i < 5; i++) {
+      const p0 = P[Math.max(0, i - 1)]; const p1 = P[i]; const p2 = P[i + 1]; const p3 = P[Math.min(5, i + 2)];
+      for (let u = 0; u < 5; u++) {
+        const k = u / 5; const k2 = k * k; const k3 = k2 * k;
+        D.push([0, 1].map((c) => 0.5 * ((2 * p1[c]) + (-p0[c] + p2[c]) * k + (2 * p0[c] - 5 * p1[c] + 4 * p2[c] - p3[c]) * k2 + (-p0[c] + 3 * p1[c] - 3 * p2[c] + p3[c]) * k3)));
+      }
+    }
+    D.push(P[5].slice());
+    const n = D.length; const Lft = []; const Rgt = [];
+    const speedTw = clamp(sp / 400, 0, 1);
+    let midCos = 1;
+    for (let i = 0; i < n; i++) {
+      const a = D[Math.max(0, i - 1)]; const b = D[Math.min(n - 1, i + 1)];
+      let tx = b[0] - a[0]; let ty = b[1] - a[1]; const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
+      const u = i / (n - 1);
+      const tw = sec * (3 + 4 * speedTw) + t.ph + u * (1.5 + 3 * speedTw);
+      const cs = Math.cos(tw);
+      if (i === Math.round((n - 1) / 2)) midCos = cs;
+      const hw = (lerp(t.w0, t.w1, u) / 2) * (0.5 + 0.5 * Math.abs(cs));
+      Lft.push([D[i][0] - ty * hw, D[i][1] + tx * hw]); Rgt.push([D[i][0] + ty * hw, D[i][1] - tx * hw]);
+      if (i === n - 1) { var T = [tx, ty]; }
+    }
+    const tip = D[n - 1];
+    const notch = [tip[0] - T[0] * 3.6, tip[1] - T[1] * 3.6];                       // an angled / forked cut at the tip
+    const Ll = Lft.map(toLocal); const Rl = Rgt.map(toLocal); const nl = toLocal(notch);
+    let d = `M${f(Ll[0][0])} ${f(Ll[0][1])}`;
+    for (let i = 1; i < n; i++) d += `L${f(Ll[i][0])} ${f(Ll[i][1])}`;
+    d += `L${f(nl[0])} ${f(nl[1])}`;
+    for (let i = n - 1; i >= 0; i--) d += `L${f(Rl[i][0])} ${f(Rl[i][1])}`;
+    t.el.setAttribute('d', d + 'Z');
+    t.el.setAttribute('fill', midCos >= 0 ? '#FF4F9A' : '#C2306F');                    // darker underside when the ribbon twists over
+    // trailing -> behind the body; swinging forward -> in front (hysteresis so it doesn't flicker)
+    const fwd = P[5][0] - K[0];
+    const wantFront = t.front ? fwd > 0 : fwd > 10;
+    if (wantFront !== t.front) { t.front = wantFront; if (wantFront) catParts.root.appendChild(t.el); else catParts.root.insertBefore(t.el, catParts.band); }
+  }
+}
+
 function lerpAngle(a, b, t) { let d = ((b - a + 540) % 360) - 180; return a + d * t; }
 
 /* ---- cat poses (tweens over the rig) */
-const catBase = () => Object.assign(cat, { rot: 0, sx: 1, sy: 1, torsoY: 0, torsoRot: 0, headRot: 0, earL: 0, earR: 0, legBF: 0, legBN: 0, legFF: 0, legFN: 0, legScale: 1,
-  tailBase: 200, tailAmp: 14, tailSpeed: 3, blink: 0, lid: 0, eyeScale: 1, bug: 0, dazed: 0, bang: 0, peel: 0, mode: 'idle', wiggle: 0, scarfUp: 0, swat: 0 });
+const catBase = () => Object.assign(cat, { attach: false, cs: 1, rot: 0, sx: 1, sy: 1, torsoY: 0, torsoRot: 0, headRot: 0, earL: 0, earR: 0, legBF: 0, legBN: 0, legFF: 0, legFN: 0, legScale: 1,
+  tailBase: 200, tailCurl: 0, tailAmp: 14, tailSpeed: 3, blink: 0, lid: 0, eyeScale: 1, bug: 0, dazed: 0, bang: 0, peel: 0, mode: 'idle', wiggle: 0, scarfUp: 0, swat: 0 });
 const catPose = (to, ms = 160, ease = 'outCubic') => tweenTo(cat, to, ms, ease);
 async function catCrouch() {
   cat.mode = 'crouch';
@@ -324,9 +430,24 @@ async function catLand() {
 }
 async function catSettle(ms = 300) {
   cat.mode = 'idle'; cat.wiggle = 0;
-  await catPose({ rot: 0, sx: 1, sy: 1, torsoY: 0, torsoRot: 0, headRot: 0, legBF: 0, legBN: 0, legFF: 0, legFN: 0, legScale: 1, eyeScale: 1, earL: 0, earR: 0, tailBase: 200, tailAmp: 14, tailSpeed: 3, scarfUp: 0 }, ms);
+  await catPose({ rot: 0, sx: 1, sy: 1, torsoY: 0, torsoRot: 0, headRot: 0, legBF: 0, legBN: 0, legFF: 0, legFN: 0, legScale: 1, eyeScale: 1, earL: 0, earR: 0, tailBase: 200, tailCurl: 0, tailAmp: 14, tailSpeed: 3, scarfUp: 0 }, ms);
 }
+/** sit_smug: haunches down, front legs straight, chin up, eyes half shut, tail curled down and around */
+const SIT = { torsoY: 4, torsoRot: -42, headRot: 10, legBF: -82, legBN: -74, legFF: 0, legFN: 3, legScale: 1, eyeScale: 0.55, earL: -6, earR: 6, tailBase: 118, tailCurl: -34, tailAmp: 2, tailSpeed: 1.2, rot: 0, sx: 1, sy: 1 };
+const catSit = (ms = 320) => { cat.mode = 'sit'; cat.wiggle = 0; return catPose(SIT, ms, 'outBack'); };
+const shoulder = () => {                       // the thief's left shoulder (the cat's side), in world space
+  const r = rad(th.rot); const c = Math.cos(r); const sn = Math.sin(r);
+  const sy = th.sy * (1 - th.sit * 0.34);
+  const lx = -40 * th.sx; const ly = -108 * sy;
+  return [th.x + c * lx - sn * ly, th.y + sn * lx + c * ly + 2];
+};
 async function catSwat() {
+  if (cat.attach) {                                   // seated on the shoulder: only the front paw and head move
+    await catPose({ legFN: -62, headRot: 4, torsoRot: -38 }, 110, 'outCubic');
+    await catPose({ legFN: -100, headRot: 16, torsoRot: -35 }, 90, 'outBack');
+    await catPose({ legFN: SIT.legFN, headRot: SIT.headRot, torsoRot: SIT.torsoRot }, 170, 'inOutSine');
+    return;
+  }
   cat.mode = 'swat';
   await catPose({ legFN: -50, torsoRot: -6, headRot: 8, eyeScale: 0.8 }, 110, 'outCubic');
   await catPose({ legFN: -100, torsoRot: 4, headRot: -2 }, 90, 'outBack');
@@ -338,7 +459,7 @@ async function catFlail(ms) {
 }
 
 /* ---------------------------- the thief: coat, head, hat, mask, 2 arms, 2 legs, sack */
-const th = { x: 650, y: 250, rot: 0, sx: 1, sy: 1, lean: 0, bob: 0, flip: 1, headRot: 0, hatY: 0, hatRot: 0, hatX: 0, aBack1: 8, aBack2: 6, aFront1: -8, aFront2: -6, legL: 0, legR: 0, sackSwing: 0, sackY: 0, sackX: 0, sackRot: 0, sackOn: 1, qA: 0, qY: 0,
+const th = { x: 650, y: 250, rot: 0, sx: 1, sy: 1, lean: 0, bob: 0, flip: 1, headRot: 0, hatY: 0, hatRot: 0, hatX: 0, aBack1: 30, aBack2: -28, aFront1: -8, aFront2: -6, legL: 0, legR: 0, sackSwing: 0, sackY: 0, sackX: 0, sackRot: 0, sackOn: 1, qA: 0, qY: 0,
   eyes: 1, face: 0, mode: 'sneak', yarn: 0, sit: 0, flash: 0, hatOff: 0 };
 const thParts = {};
 {
@@ -394,7 +515,7 @@ const thApply = () => {
   const sit = s.sit;
   const bob = s.mode === 'sneak' ? Math.sin(clock.t / 1000 * 7) * 1.6 : s.bob;
   thParts.root.setAttribute('transform', `translate(${s.x.toFixed(2)} ${s.y.toFixed(2)}) rotate(${s.rot.toFixed(2)}) scale(${s.sx.toFixed(3)} ${(s.sy * (1 - sit * 0.34)).toFixed(3)})`);
-  const lean = s.lean + (s.mode === 'sneak' ? 3 : 0);
+  const lean = s.lean + (s.mode === 'sneak' ? 6 : 0);
   const body = `translate(0 ${bob.toFixed(2)}) rotate(${lean.toFixed(2)} 0 -6)`;
   thParts.coat.setAttribute('transform', body); thParts.collar.setAttribute('transform', body); thParts.yarn.setAttribute('transform', body); thParts.yarn.setAttribute('opacity', s.yarn);
   thParts.glow.setAttribute('opacity', 0.5 + Math.sin(clock.t / 1000 * 3) * 0.12);
@@ -412,7 +533,7 @@ const thApply = () => {
   thParts.eyeHoles.forEach(({ g, x }) => g.setAttribute('transform', `translate(${x} -3) scale(1 ${s.eyes.toFixed(3)}) translate(${-x} 3)`));
   thParts.mouth.setAttribute('rx', 3 + s.face * 1);
 };
-const thBase = () => Object.assign(th, { x: 650, y: 250, rot: 0, sx: 1, sy: 1, lean: 0, bob: 0, flip: 1, headRot: 0, hatY: 0, hatRot: 0, hatX: 0, aBack1: 8, aBack2: 6, aFront1: -8, aFront2: -6, legL: 0, legR: 0,
+const thBase = () => Object.assign(th, { x: 650, y: 250, rot: 0, sx: 1, sy: 1, lean: 0, bob: 0, flip: 1, headRot: 0, hatY: 0, hatRot: 0, hatX: 0, aBack1: 30, aBack2: -28, aFront1: -8, aFront2: -6, legL: 0, legR: 0,
   sackSwing: 0, sackY: 0, sackX: 0, sackRot: 0, sackOn: 1, qA: 0, qY: -70, eyes: 1, face: 0, mode: 'sneak', yarn: 0, sit: 0 });
 const thPose = (to, ms = 160, ease = 'outCubic') => tweenTo(th, to, ms, ease);
 async function thGlance() {
@@ -421,15 +542,17 @@ async function thGlance() {
   await thPose({ flip: 1, headRot: 0, eyes: 1 }, 170, 'inOutCubic');
 }
 async function thSpooked() {
-  await thPose({ y: 242, aBack1: 150, aFront1: -150, aBack2: -10, aFront2: 10, eyes: 1.5, hatY: -10 }, 90, 'outCubic');
-  thPose({ y: 250, hatY: 0 }, 220, 'outBounce' in EASE ? 'outBounce' : 'outBack');
+  await thPose({ y: 242, aBack1: 150, aFront1: -150, aBack2: -10, aFront2: 10, eyes: 1.5, hatY: -6 }, 90, 'outCubic');
+  thPose({ y: 250, hatY: 0 }, 220, 'outBack');
+  await wait(210);                                                    // arms stay up about 0.3 s in total
+  await thPose({ aBack1: 30, aBack2: -28, aFront1: -8, aFront2: -6, eyes: 1 }, 160, 'inOutCubic');
 }
 async function thStagger() {
   th.mode = 'stagger';
-  thPose({ hatY: -70, hatRot: 220, hatX: 24 }, 220, 'outCubic');
+  thPose({ hatY: -9, hatRot: 16, hatX: 5 }, 120, 'outCubic');
   await thPose({ rot: 15, lean: 10, aBack1: 150, aFront1: -130, aBack2: -20, aFront2: 20, legL: -20, legR: 16, eyes: 1.6, flip: 1 }, 130, 'outCubic');
   await thPose({ rot: -5, lean: -4, hatY: 0, hatRot: 0, hatX: 0 }, 220, 'outBack');
-  await thPose({ rot: 0, lean: 0, aBack1: 40, aFront1: -40, aBack2: 10, aFront2: -10, legL: 0, legR: 0 }, 180, 'inOutSine');
+  await thPose({ rot: 0, lean: 0, aBack1: 30, aFront1: -8, aBack2: -28, aFront2: -6, legL: 0, legR: 0 }, 180, 'inOutSine');
 }
 async function thDropSack() {
   th.qA = 1;
@@ -517,6 +640,7 @@ const camTo = (to, ms = T.camFrame, ease = 'inOutCubic') => tweenTo(cam, to, ms,
 
 /* ---------------------------------------------------------------- update + render */
 function updateAll(dt) {
+  if (cat.attach) { const [ax, ay] = shoulder(); cat.x = ax; cat.y = ay; cat.rot = th.rot * 0.6; }
   catUpdate(dt);
   // twinkle, neon flicker
   const sec = clock.t / 1000;
@@ -528,16 +652,16 @@ function updateAll(dt) {
 let glancing = false; let lastGlance = 2;
 function renderAll() {
   catApply(); thApply(); applyCam();
-  spot.setAttribute('opacity', (spotState.a * 0.9).toFixed(3));
+  spot.setAttribute('opacity', (spotState.a * 0.5).toFixed(3));
   world.setAttribute('transform', shakeAmp > 0.01 ? `translate(${((Math.random() - 0.5) * 2 * shakeAmp).toFixed(2)} ${((Math.random() - 0.5) * 2 * shakeAmp).toFixed(2)})` : '');
 }
 
 /* ---------------------------------------------------------------- reset */
 function resetAll() {
   tweens.clear(); holdWaiters.splice(0).forEach((r) => r()); clock.hold = 0; shakeAmp = 0;
-  restoreMask(); flashChars(false); hidePlate(); fxLayer.innerHTML = ''; spotState.a = 0; binFront.setAttribute('opacity', 0);
+  clatter.setAttribute('opacity', 0); beatEl.textContent = ''; restoreMask(); flashChars(false); hidePlate(); fxLayer.innerHTML = ''; spotState.a = 0; binFront.setAttribute('opacity', 0);
   lid.setAttribute('transform', 'translate(0 -46)');
-  catBase(); Object.assign(cat, { x: 160, y: 250, px: 160, py: 250, vx: 0, vy: 0 }); scarfAng.fill(90); tailAng.fill(200);
+  catBase(); Object.assign(cat, { x: 160, y: 250, px: 160, py: 250, vx: 0, vy: 0 }); tailAng.fill(200); scarfReady = false;
   thBase(); glancing = false; lastGlance = clock.t / 1000;
   catParts.root.removeAttribute('opacity'); catLayer.removeAttribute('opacity');
   catLayer.parentNode.appendChild(catLayer);
@@ -567,13 +691,14 @@ const catchSteps = () => [
       camTo({ cx: 640, w: 330, by: 262, minV: 250 }, 250);
       thStagger();
       cat.sx = 1.2; cat.sy = 0.8;
-      await run(300, 'inOutSine', (e) => { cat.x = lerp(IMPACT.x, HAT.x, e); cat.y = lerp(IMPACT.y, HAT.y, e) - 46 * Math.sin(Math.PI * e); cat.sx = lerp(1.2, 0.95, e); cat.sy = lerp(0.8, 1.05, e); });
-      cat.mode = 'idle'; catLand(); } },
+      const x0 = cat.x; const y0 = cat.y;
+      await run(300, 'inOutSine', (e) => { const [tx, ty] = shoulder(); cat.x = lerp(x0, tx, e); cat.y = lerp(y0, ty, e) - 46 * Math.sin(Math.PI * e); cat.sx = lerp(1.2, 0.95, e); cat.sy = lerp(0.8, 1.05, e); });
+      cat.attach = true; cat.cs = 0.72; cat.mode = 'idle'; catSit(260); await run(380, 'outElastic', (e) => { cat.sx = lerp(1.25, 1, e); cat.sy = lerp(0.75, 1, e); }); } },
   { name: 'loot', dur: T.loot, run: () => thDropSack() },
   { name: 'unmask', dur: T.unmask, run: async () => { catSwat(); await wait(150); await maskFly(T.unmask - 150); } },
-  { name: 'reveal', dur: T.reveal, run: () => { setSpot(true, 650, 160); thPose({ eyes: 1.5, aBack1: 140, aFront1: -140 }, 160); } },
+  { name: 'reveal', dur: T.reveal, run: () => { setSpot(true, 650, 160); thPose({ eyes: 1.4 }, 160); } },
   { name: 'name plate', dur: T.plate, run: () => showPlate('catch') },
-  { name: 'hold (cat smug, thief tied)', dur: 1500, run: () => { th.mode = 'tied'; cat.mode = 'idle'; thPose({ sit: 1, yarn: 1, aBack1: 14, aFront1: -14, aBack2: 6, aFront2: -6, legL: 70, legR: 74, eyes: 0.7, hatRot: -10, hatX: 6, rot: 0 }, 420, 'outBack'); catPose({ eyeScale: 0.5, earL: -10, earR: 10 }, 300); tweenTo(cat, { y: 98 }, 420, 'outBack'); } }
+  { name: 'hold (cat smug, thief tied)', dur: 1500, run: () => { th.mode = 'tied'; cat.mode = 'idle'; thPose({ sit: 1, yarn: 1, aBack1: 14, aFront1: -14, aBack2: 6, aFront2: -6, legL: 70, legR: 74, eyes: 0.7, hatRot: -6, hatX: 3, rot: 0 }, 420, 'outBack'); catSit(300); } }
 ];
 
 const fallSteps = () => [
@@ -581,7 +706,7 @@ const fallSteps = () => [
   { name: 'anticipation', dur: T.anticipation, run: () => { catCrouch(); thSpooked(); } },
   { name: 'leap (falls short)', dur: T.leapFall, run: () => catLeap(402, 232, 50, T.leapFall, false) },
   { name: 'realisation (freeze)', dur: T.realize, run: () => { cat.mode = 'freeze'; cat.sx = 1; cat.sy = 1; cat.rot = 0; return catPose({ bug: 1, bang: 1, eyeScale: 1.1, headRot: -10, legBF: 40, legBN: 30, legFF: -45, legFN: -35, earL: 18, earR: 20, scarfUp: 0.6 }, 120, 'outBack'); } },
-  { name: 'drop', dur: T.drop, run: async () => { catFlail(T.drop); camTo({ cx: 400, w: 330, by: 470, minV: 250 }, T.drop, 'inOutCubic'); await run(T.drop, 'inQuad', (e) => { cat.y = lerp(232, 398, e); cat.rot = lerp(0, 220, e); }); } },
+  { name: 'drop', dur: T.drop, run: async () => { catFlail(T.drop); camTo({ cx: 405, w: 420, by: 488, minV: 330 }, T.drop, 'inOutCubic'); await run(T.drop, 'inQuad', (e) => { cat.y = lerp(232, 398, e); cat.rot = lerp(0, 220, e); }); } },
   { name: 'impact (hit-stop)', dur: 0, run: async () => {
       cat.mode = 'bin'; cat.rot = 0; cat.sx = 0.9; cat.sy = 0.9; cat.x = BIN_X - 22; cat.y = 436;
       binFront.setAttribute('opacity', 1); flashChars(true); dust(BIN_X, 418, 16, 120, '#B3AEE0'); shake(6); showClatter();
@@ -589,7 +714,7 @@ const fallSteps = () => [
       await hitStop(T.impact); flashChars(false); } },
   { name: 'reaction (dazed, banana peel)', dur: T.binReaction, run: async () => {
       cat.legBF = cat.legBN = cat.legFF = cat.legFN = 0; cat.bug = 0; cat.bang = 0; cat.dazed = 1; cat.peel = 1; cat.headRot = 14; cat.torsoRot = 0; cat.scarfUp = 0; cat.eyeScale = 1;
-      await run(T.binReaction, 'outElastic', (e) => { cat.y = lerp(446, 424, e); }); } },
+      await run(T.binReaction, 'outElastic', (e) => { cat.y = lerp(446, 432, e); }); } },
   { name: 'thief exit', dur: 0, run: async () => { await camTo({ cx: 560, w: 520, by: 330, minV: 300 }, T.camRoof);
       th.mode = 'tip'; await Promise.all([thPose({ aFront1: -150, aFront2: -40, hatY: -8, hatRot: -12, flip: 1 }, T.hatTip, 'outBack')]);
       await thPose({ aFront1: -8, aFront2: -6, hatY: 0, hatRot: 0 }, 120);
@@ -598,12 +723,12 @@ const fallSteps = () => [
       run(1e6, 'linear', () => { if (th.mode === 'run') { const w = clock.t / 1000 * 18; th.legL = Math.sin(w) * 38; th.legR = -Math.sin(w) * 38; th.bob = -Math.abs(Math.sin(w)) * 6; } });
       await run(T.thiefRun, 'inQuad', (e) => { th.x = lerp(650, 1050, e); });
     } },
-  { name: 'camera back down', dur: T.camBack, run: () => camTo({ cx: 405, w: 640, by: 462, minV: 410 }, T.camBack) },
+  { name: 'camera back down', dur: T.camBack, run: () => camTo({ cx: 405, w: 640, by: 488, minV: 420 }, T.camBack) },
   { name: 'card', dur: 1500, run: () => showPlate('fall') }
 ];
 const clatter = el('text', { 'text-anchor': 'middle', 'font-family': 'VT323, monospace', 'font-size': 34, fill: '#FFB238', opacity: 0, 'letter-spacing': 3 }, world);
 clatter.textContent = 'CLATTER!';
-function showClatter() { clatter.setAttribute('x', BIN_X); clatter.setAttribute('y', 340); run(1100, 'linear', (e, k) => { clatter.setAttribute('opacity', k < 0.15 ? k / 0.15 : k > 0.8 ? (1 - k) / 0.2 : 1); clatter.setAttribute('y', 340 - 10 * EASE.outCubic(Math.min(1, e * 2))); }); }
+function showClatter() { clatter.setAttribute('x', BIN_X); clatter.setAttribute('y', 330); run(1100, 'linear', (e, k) => { clatter.setAttribute('opacity', k < 0.15 ? k / 0.15 : k > 0.8 ? (1 - k) / 0.2 : 1); clatter.setAttribute('y', 330 - 10 * EASE.outCubic(Math.min(1, e * 2))); }); }
 
 async function playCatch() { token++; const tok = token; seqRunning = true; resetAll(); const ok = await steps(catchSteps(), tok); if (tok === token) seqRunning = false; return ok; }
 async function playFall() { token++; const tok = token; seqRunning = true; resetAll(); const ok = await steps(fallSteps(), tok); if (tok === token) seqRunning = false; return ok; }
@@ -632,32 +757,45 @@ async function snapshot() {
   await new Promise((res) => { img.onload = res; img.onerror = res; img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(c)); });
   return { img, w: r.width, h: r.height };
 }
-async function leapStrip() {
+async function captureStrip(kind) {
   loopOn = false; loopTok++; bLoop.classList.remove('on'); bLoop.textContent = 'Loop: off';
-  const wasManual = clock.manual; clock.manual = true; plate.className = '';
+  clock.manual = true; plate.className = '';
   token++; const tok = token; resetAll(); seqRunning = true;
-  let t0 = null; beatHook = (name) => { if (name === 'leap') t0 = clock.t; };
-  const done = steps(catchSteps(), tok);
+  let t0 = kind === 'leap' ? null : clock.t;
+  beatHook = (name) => { if (kind === 'leap' && name === 'leap' && t0 === null) t0 = clock.t; };
+  let finished = false;
+  const done = steps(kind === 'fall' ? fallSteps() : catchSteps(), tok).then(() => { finished = true; });
   const frames = []; let next = 0; const step = 1000 / 60;
-  let guard = 0;
-  while (guard++ < 600 && frames.length < 14) {
+  const maxFrames = kind === 'leap' ? 14 : 80;
+  for (let guard = 0; guard < 2400 && frames.length < maxFrames && !finished; guard++) {
     advance(step);
     await new Promise((r) => setTimeout(r, 0));   // let the timeline's promises settle between frames
     if (t0 !== null && clock.t - t0 + 1e-6 >= next) { frames.push({ ...(await snapshot()), t: Math.round(next) }); next += 100; }
   }
-  beatHook = null; token++; seqRunning = false; clock.manual = wasManual;
-  // contact sheet
-  const cols = 4; const tw = 360; const th2 = Math.round(frames[0].h / frames[0].w * tw);
-  const rows = Math.ceil(frames.length / cols);
-  const cv = $('#sheet'); cv.width = cols * (tw + 6); cv.height = rows * (th2 + 26);
-  const x = cv.getContext('2d'); x.fillStyle = '#05040C'; x.fillRect(0, 0, cv.width, cv.height); x.font = '18px monospace'; x.fillStyle = '#FFB238';
-  frames.forEach((f, i) => { const cx = (i % cols) * (tw + 6); const cy = Math.floor(i / cols) * (th2 + 26); x.drawImage(f.img, cx, cy + 22, tw, th2); x.fillText(`+${f.t} ms`, cx + 4, cy + 17); });
+  beatHook = null; token++; seqRunning = false;
+  void done;
+  // contact sheets: mobile 6 columns, desktop 4; 12 frames each
+  const portrait = frames[0].h > frames[0].w;
+  const cols = portrait ? 6 : 4; const tw = portrait ? 250 : 380; const per = kind === 'leap' ? 14 : 12;
+  const th2 = Math.round(frames[0].h / frames[0].w * tw);
+  const sheets = [];
+  for (let i = 0; i < frames.length; i += per) {
+    const part = frames.slice(i, i + per); const rows = Math.ceil(part.length / cols);
+    const cv = document.createElement('canvas'); cv.width = cols * (tw + 6); cv.height = rows * (th2 + 26);
+    const x = cv.getContext('2d'); x.fillStyle = '#05040C'; x.fillRect(0, 0, cv.width, cv.height); x.font = '18px monospace'; x.fillStyle = '#FFB238';
+    part.forEach((f, j) => { const cx = (j % cols) * (tw + 6); const cy = Math.floor(j / cols) * (th2 + 26); x.drawImage(f.img, cx, cy + 22, tw, th2); x.fillText(`+${f.t} ms`, cx + 4, cy + 17); });
+    sheets.push(cv);
+  }
+  return sheets;
+}
+async function leapStrip() {
+  const sheets = await captureStrip('leap');
+  const cv = $('#sheet'); cv.width = sheets[0].width; cv.height = sheets[0].height; cv.getContext('2d').drawImage(sheets[0], 0, 0);
   $('#sheetwrap').classList.add('show');
-  await done.catch?.(() => {});
 }
 $('#bStrip').onclick = () => leapStrip();
-$('#bClose').onclick = () => { $('#sheetwrap').classList.remove('show'); resetAll(); loopOn = true; bLoop.classList.add('on'); bLoop.textContent = 'Loop: on'; loop(); };
-window.__vec = { advance, clock, playCatch, playFall, leapStrip, cam };
+$('#bClose').onclick = () => { $('#sheetwrap').classList.remove('show'); clock.manual = false; resetAll(); loopOn = true; bLoop.classList.add('on'); bLoop.textContent = 'Loop: on'; loop(); };
+window.__vec = { TAILS, cat, advance, clock, playCatch, playFall, leapStrip, cam };
 
 /* ---------------------------------------------------------------- go */
 let last = performance.now();
@@ -665,4 +803,16 @@ function frame(now) { const dt = Math.min(50, now - last); last = now; if (!cloc
 resetAll(); renderAll();
 requestAnimationFrame(frame);
 window.addEventListener('resize', renderAll);
-loop();
+const qs = new URLSearchParams(location.search);
+if (qs.get('strip')) {
+  (async () => {
+    clock.manual = true;
+    await document.fonts?.ready;
+    const sheets = await captureStrip(qs.get('strip'));
+    for (const [i, cv] of sheets.entries()) {
+      const blob = await new Promise((r) => cv.toBlob(r, 'image/png'));
+      await fetch(`/save?name=${encodeURIComponent(qs.get('out') || qs.get('strip'))}-${i + 1}.png`, { method: 'POST', body: blob });
+    }
+    document.title = 'STRIP-DONE ' + sheets.length;
+  })();
+} else loop();
