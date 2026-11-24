@@ -25,8 +25,8 @@ const thParts = {};
   el('path', { d: 'M-52 -98 C-80 -94 -82 -50 -62 -42 C-46 -38 -30 -50 -34 -74 C-36 -90 -44 -96 -52 -98 Z', fill: 'url(#gSack)', stroke: '#FFE9B0', 'stroke-opacity': 0.8, 'stroke-width': 1.5, filter: 'url(#glow)' }, thParts.sackG);
   el('path', { d: 'M-52 -98 C-48 -104 -42 -102 -40 -97 C-44 -97 -48 -96 -52 -98 Z', fill: '#C46C10' }, thParts.sackG);
   el('path', { d: 'M-68 -78 C-74 -66 -70 -54 -62 -50', fill: 'none', stroke: '#8A4A0C', 'stroke-width': 1.4, 'stroke-dasharray': '3 3', 'stroke-linecap': 'round' }, thParts.sackG);
-  const q = el('text', { x: -56, y: -60, 'text-anchor': 'middle', 'font-family': 'Fredoka, Pixelify Sans, sans-serif', 'font-weight': 800, 'font-size': 34, fill: '#6B3E0A' }, thParts.sackG); q.textContent = '?';
-  thParts.qFloat = el('text', { x: -56, y: -70, 'text-anchor': 'middle', 'font-family': 'Fredoka, Pixelify Sans, sans-serif', 'font-weight': 800, 'font-size': 36, fill: '#FFB238', opacity: 0 }, root); thParts.qFloat.textContent = '?';
+  const q = el('text', { x: -56, y: -60, 'text-anchor': 'middle', 'font-family': 'Exo 2, sans-serif', 'font-weight': 800, 'font-size': 34, fill: '#6B3E0A' }, thParts.sackG); q.textContent = '?';
+  thParts.qFloat = el('text', { x: -56, y: -70, 'text-anchor': 'middle', 'font-family': 'Exo 2, sans-serif', 'font-weight': 800, 'font-size': 36, fill: '#FFB238', opacity: 0 }, root); thParts.qFloat.textContent = '?';
   thParts.legL = el('g', {}, root); thParts.legR = el('g', {}, root);
   for (const g of [thParts.legL, thParts.legR]) { el('path', { d: capsule(0, 0, 0, 12, 9, 8), fill: '#1B1338' }, g); el('path', { d: 'M-10 10 Q-10 4 -2 4 L10 4 Q16 10 14 14 L-10 14 Z', fill: '#0E0A1E', stroke: 'url(#rimCoat)', 'stroke-width': 1.2 }, g); }
   thParts.armB = el('g', {}, root);                                      // back arm (near the cat)
@@ -36,7 +36,7 @@ const thParts = {};
   for (const d of ['M-22 -92 C-26 -60 -26 -34 -30 -10', 'M22 -90 C28 -60 28 -34 32 -10']) el('path', { d, fill: 'none', stroke: '#9C90E8', 'stroke-width': 1.3, 'stroke-linecap': 'round', opacity: 0.35 }, thParts.coat);
   el('path', { d: 'M-46 -8 Q0 4 42 -8 L42 -4 L-46 -4 Z', fill: '#1B1240', opacity: 0.6 }, thParts.coat);
   thParts.yarn = el('g', { opacity: 0 }, root);
-  for (const y of [-92, -66, -40]) { el('path', { d: `M-38 ${y} Q0 ${y + 14} 36 ${y}`, fill: 'none', stroke: '#FF4F9A', 'stroke-width': 5, 'stroke-linecap': 'round' }, thParts.yarn); el('path', { d: `M-38 ${y + 2} Q0 ${y + 16} 36 ${y + 2}`, fill: 'none', stroke: '#B72A68', 'stroke-width': 1.6, 'stroke-linecap': 'round' }, thParts.yarn); }
+  for (const y of [-92, -66, -40]) { el('path', { d: `M-38 ${y} Q0 ${y + 14} 36 ${y}`, fill: 'none', stroke: '#FF2E88', 'stroke-width': 5, 'stroke-linecap': 'round' }, thParts.yarn); el('path', { d: `M-38 ${y + 2} Q0 ${y + 16} 36 ${y + 2}`, fill: 'none', stroke: '#B72A68', 'stroke-width': 1.6, 'stroke-linecap': 'round' }, thParts.yarn); }
   thParts.armF = el('g', {}, root);                                      // front arm (can tip the hat)
   for (const g of [thParts.armB, thParts.armF]) {
     el('path', { d: capsule(0, 0, 0, 30, 9.5, 8), fill: 'url(#gCoat)', stroke: 'url(#rimCoat)', 'stroke-width': 1.3 }, g);

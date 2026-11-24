@@ -2,7 +2,7 @@
 import { rainHTML } from './rain.js';
 import { portrait } from './portraits.js';
 import { skylineLayer, moonSVG, starsSVG } from './world.js';
-import { logoSVG } from './logo.js';
+import { logoHTML } from './logo.js';
 import { escapeHTML } from './scene.js';
 
 /**
@@ -52,9 +52,8 @@ export function homeHTML(nights) {
     <svg class="skyline-strip" viewBox="0 0 640 80" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${skylineLayer({ x0: -20, x1: 660, base: 80, seed: 3, fill: '#322C63', opacity: 0.75, minH: 28, maxH: 68, minW: 24, maxW: 48, rim: true })}${skylineLayer({ x0: -20, x1: 660, base: 84, seed: 17, fill: '#252052', opacity: 1, minH: 14, maxH: 46, minW: 20, maxW: 40, windows: 0.1 })}</svg>
     <div class="home-inner">
       <div class="logo-block">
-        <h1 class="logo">${logoSVG()}</h1>
-        <p class="logo-sub">ONE LEAP A DAY</p>
-        <p class="hero-line">Leap before you look.</p>
+        ${logoHTML()}
+        <p class="logo-sub">Leap before you look</p>
         <div class="story-intro">
           <p>A masked thief prowls the rooftops.</p>
           <p>Only your cat is watching.</p>

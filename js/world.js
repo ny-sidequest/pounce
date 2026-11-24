@@ -1,6 +1,6 @@
 // The vector night world: smooth buildings with lit windows (curtains, silhouettes), parallax skylines, neon, moon, street.
 // Pure string builders (no DOM), shared by the game scene, the home skyline and the results art.
-export const COL = { night: '#0B0A1A', sky: '#120F2B', roof1: '#1C1A35', roof2: '#232042', line: '#3A3666', dim: '#5E5A8A', muted: '#8B86B8', moon: '#F4E7C3', amber: '#FFB238', neon: '#FF4F9A', shadow: '#05040C' };
+export const COL = { night: '#08071A', sky: '#120F2B', roof1: '#1C1A35', roof2: '#232042', line: '#3A3666', dim: '#5E5A8A', muted: '#8B86B8', moon: '#F4E7C3', amber: '#FFB238', neon: '#FF2E88', shadow: '#05040C' };
 
 export function rng(seed) {
   let s = seed >>> 0;
@@ -57,8 +57,8 @@ export function moonSVG(R = 22) {
 export function neonSignSVG(x, y) {
   return `<g class="neon" transform="translate(${x} ${y})">
     <rect x="-2" y="-2" width="60" height="26" rx="6" fill="#08070F" stroke="#3E3874" stroke-width="1.2"/>
-    <rect x="1" y="1" width="54" height="20" rx="4.5" fill="none" stroke="#FF4F9A" stroke-width="1.6" filter="url(#glow)" opacity=".95"/>
-    <text x="28" y="17" text-anchor="middle" font-family="'Pixelify Sans', monospace" font-weight="700" font-size="14.5" letter-spacing="1" fill="#FF9CC8" filter="url(#glow)">OPEN</text></g>`;
+    <rect x="1" y="1" width="54" height="20" rx="4.5" fill="none" stroke="#FF2E88" stroke-width="1.6" filter="url(#glow)" opacity=".95"/>
+    <text x="28" y="17" text-anchor="middle" font-family="Audiowide, sans-serif" font-size="12.5" letter-spacing=".5" fill="#FF9CC8" filter="url(#glow)">OPEN</text></g>`;
 }
 
 /** a bin with handles, a dent and a lid; origin = top-left of the body */

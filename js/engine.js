@@ -96,19 +96,45 @@ export function totals(progress) {
 
 /* ------------------------------------------------------------------ titles */
 
-const CORRECT_TITLES = [
-  { title: 'Psychic cat', pose: 'psychic' },
-  { title: 'Alley genius', pose: 'genius' },
-  { title: 'Curious cat', pose: 'curious' },
-  { title: 'Sleepy kitten', pose: 'sleepy' },
-  { title: 'Cardboard box', pose: 'box' }
+/** The six cat ranks, best first. A title comes only from the final score (and the catch rule below). */
+export const BANDS = [
+  { key: 'psychic', title: 'Psychic cat', min: 8500, max: 10000, pose: 'psychic', line: 'Knew who it was before the moon was up.' },
+  { key: 'genius', title: 'Alley genius', min: 7000, max: 8499, pose: 'cool', line: 'Quick paws, bold leap. The rooftops are yours tonight.' },
+  { key: 'curious', title: 'Curious cat', min: 6000, max: 6999, pose: 'tilt', line: 'Sniffed out the trail and kept your nerve.' },
+  { key: 'sleepy', title: 'Sleepy kitten', min: 5000, max: 5999, pose: 'sleepy', line: 'Got there in the end. Mostly awake.' },
+  { key: 'stray', title: 'Stray cat', min: 2000, max: 4999, pose: 'bin', line: 'Wandered the rooftops and picked up a few clues. The thief can wait.' },
+  { key: 'lost', title: 'Lost kitten', min: 0, max: 1999, pose: 'scaredy', line: 'The night got the better of you. Tomorrow you leap.' }
 ];
+const STRAY = BANDS.findIndex((b) => b.key === 'stray');
+
+/**
+ * Band for a score. Catch rule: a cat that did not catch the thief (wrong pounce, timeout or never pounced)
+ * is capped at Stray cat, whatever the score. Speed alone tops out at 5,000, which would otherwise reach Sleepy kitten.
+ */
+export function bandForScore(score, caught) {
+  const i = BANDS.findIndex((b) => score >= b.min);
+  const idx = Math.max(0, i < 0 ? BANDS.length - 1 : i);
+  return BANDS[!caught && idx < STRAY ? STRAY : idx];
+}
 
 export function titleFor(progress) {
+  const caught = progress.pounce.status === 'correct';
+  return { ...bandForScore(totals(progress).total, caught) };
+}
+
+/** 'caught' | 'wrong' | 'timeout' | 'never'. A pounce box that ran out (or was cut by a reload) has no guess. */
+export function outcomeFor(progress) {
   const p = progress.pounce;
-  if (p.status === 'correct') return { ...CORRECT_TITLES[p.afterQ - 1] };
-  if (p.status === 'wrong') return { title: 'Bin diver', pose: 'bin' };
-  return { title: 'Scaredy cat', pose: 'scaredy' };
+  if (p.status === 'correct') return 'caught';
+  if (p.status === 'wrong') return p.guess ? 'wrong' : 'timeout';
+  return 'never';
+}
+
+/** The line under the score saying what happened. */
+export function eventLine(progress) {
+  const o = outcomeFor(progress);
+  if (o === 'caught') { const t = totals(progress); return `Caught the thief · Speed ${formatNumber(t.speed)} + Pounce ${formatNumber(t.pounce)}`; }
+  return o === 'wrong' ? 'Pounced on the wrong cat' : o === 'timeout' ? 'The thief slipped away' : 'Never leapt';
 }
 
 /* ------------------------------------------------------------- share card */
@@ -176,11 +202,14 @@ export function leapLine(progress) {
   return `${head} · ${formatNumber(total)}`;
 }
 
-export function shareText(progress, domain = 'pounce.io') {
+/** opts.betterThanPct adds the "Better than X% of cats" line (omitted while stats are unknown). */
+export function shareText(progress, opts = {}) {
+  const { domain = 'pounce.io', betterThanPct = null } = typeof opts === 'string' ? { domain: opts } : opts;
   return [
     `Pounce · Night #${progress.puzzleId} · ${titleFor(progress).title}`,
     shareLine(progress),
     leapLine(progress),
+    ...(betterThanPct == null ? [] : [`Better than ${betterThanPct}% of cats`]),
     `Who's under the mask? → ${domain}`
   ].join('\n');
 }
@@ -210,7 +239,7 @@ export function startQuestion(p) {
   return n;
 }
 
-export function resolveQuestion(p, { status, guess = null, time = null, reason = null }) {
+export function resolveQuestion(p, { status, guess = null, time = null, reason = null, tries = null, guesses = null }) {
   if (p.phase !== 'question') return p;
   const n = clone(p);
   const correct = status === 'correct';
@@ -219,7 +248,9 @@ export function resolveQuestion(p, { status, guess = null, time = null, reason =
     guess,
     time,
     points: correct ? speedPoints(time) : 0,
-    reason
+    reason,
+    ...(tries !== null ? { tries } : {}),
+    ...(guesses ? { guesses } : {})
   });
   if (n.results.length < QUESTIONS_PER_PUZZLE) n.phase = 'break';
   else n.phase = n.pounce.status === 'none' ? 'final' : 'done';

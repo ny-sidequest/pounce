@@ -61,7 +61,7 @@ export function clueSequence({ idx, missed, kind, hopTo = null, footStep = 0 }) 
 /** ui: { showPlate(), waitForTap() } provided by the game (the plate is DOM). */
 export function catchSequence() {
   return [
-    { name: 'camera', dur: T.camFrame, run: ({ scene }) => { scene.dim(true); scene.setReserve(scene.sceneEl.clientWidth >= 900 ? 216 : 0); return scene.frame('chase', T.camFrame); } },
+    { name: 'camera', dur: T.camFrame, run: ({ scene }) => { scene.dim(true); scene.setReserve(scene.sceneEl.clientWidth >= 900 ? 216 : 170); return scene.frame('chase', T.camFrame); } },
     { name: 'anticipation', dur: T.anticipation, run: ({ scene }) => { scene.catAnim('crouch'); scene.thiefAnim('spooked'); } },
     {
       name: 'leap', dur: T.leapCatch,

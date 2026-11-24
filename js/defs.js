@@ -5,7 +5,7 @@ const DEFS = `
 <linearGradient id="gCat" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2D2759"/><stop offset=".5" stop-color="#0F0C22"/><stop offset="1" stop-color="#05040C"/></linearGradient>
 <linearGradient id="rimCat" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#D2CDFA" stop-opacity=".95"/><stop offset=".45" stop-color="#8078CC" stop-opacity=".4"/><stop offset="1" stop-color="#8078CC" stop-opacity="0"/></linearGradient>
 <linearGradient id="gScarf" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FF86BA"/><stop offset="1" stop-color="#D23578"/></linearGradient>
-<linearGradient id="gScarf2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FF4F9A"/><stop offset="1" stop-color="#B72A68"/></linearGradient>
+<linearGradient id="gScarf2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FF2E88"/><stop offset="1" stop-color="#B72A68"/></linearGradient>
 <linearGradient id="rimPink" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFD6E8" stop-opacity=".9"/><stop offset="1" stop-color="#FFD6E8" stop-opacity="0"/></linearGradient>
 <linearGradient id="gCoat" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5E49AC"/><stop offset="1" stop-color="#281C56"/></linearGradient>
 <linearGradient id="rimCoat" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#D6CFFF" stop-opacity=".9"/><stop offset=".5" stop-color="#9C90E8" stop-opacity=".3"/><stop offset="1" stop-color="#9C90E8" stop-opacity="0"/></linearGradient>

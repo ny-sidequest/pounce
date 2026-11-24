@@ -50,10 +50,10 @@ const catParts = {};
   // The two ribbon tails are drawn in world space (see updateScarf), behind or in front of the body.
   const band = el('g', {}, root); catParts.band = band; root.insertBefore(band, hg);
   el('path', { d: 'M5 -40 C13 -27 30 -22 47 -27 L47 -22 C29 -16 10 -21 2 -36 Z', fill: '#C2306F' }, band);                    // underside shade
-  el('path', { d: 'M7 -50 C15 -38 31 -33 47 -37 L48 -26 C30 -20 13 -27 4 -42 Z', fill: '#FF4F9A' }, band);                     // the band
+  el('path', { d: 'M7 -50 C15 -38 31 -33 47 -37 L48 -26 C30 -20 13 -27 4 -42 Z', fill: '#FF2E88' }, band);                     // the band
   el('path', { d: 'M9 -49 C17 -38 31 -34 46 -36', fill: 'none', stroke: '#FF9CC8', 'stroke-width': 1.3, 'stroke-linecap': 'round', opacity: 0.8 }, band);
   el('path', { d: 'M10 -41 C18 -32 31 -28 46 -30', fill: 'none', stroke: '#C2306F', 'stroke-width': 1.2, 'stroke-linecap': 'round', opacity: 0.75 }, band);   // soft fold line
-  el('ellipse', { cx: 11, cy: -45, rx: 6.5, ry: 5.6, fill: '#FF4F9A', stroke: '#FFD6E8', 'stroke-opacity': 0.5, 'stroke-width': 1 }, band);                  // knot
+  el('ellipse', { cx: 11, cy: -45, rx: 6.5, ry: 5.6, fill: '#FF2E88', stroke: '#FFD6E8', 'stroke-opacity': 0.5, 'stroke-width': 1 }, band);                  // knot
   el('path', { d: 'M6 -43 C9 -39 14 -39 17 -42 C16 -38 12 -36 8 -38 Z', fill: '#C2306F' }, band);
   el('path', { d: 'M8 -48 C10 -50 13 -50 15 -48', fill: 'none', stroke: '#FF9CC8', 'stroke-width': 1, 'stroke-linecap': 'round' }, band);
 }
@@ -113,7 +113,7 @@ const TAILS = [
   { L: 46, w0: 10, w1: 5, ph: 0.0, rest: -0.35, p: [], q: [], el: null, front: false },
   { L: 34, w0: 9, w1: 4.5, ph: 2.2, rest: 0.05, p: [], q: [], el: null, front: false }
 ];
-for (const t of TAILS) { t.el = el('path', { fill: '#FF4F9A', stroke: '#FFD6E8', 'stroke-opacity': 0.55, 'stroke-width': 0.9, 'stroke-linejoin': 'round' }, catParts.root); catParts.root.insertBefore(t.el, catParts.band); }
+for (const t of TAILS) { t.el = el('path', { fill: '#FF2E88', stroke: '#FFD6E8', 'stroke-opacity': 0.55, 'stroke-width': 0.9, 'stroke-linejoin': 'round' }, catParts.root); catParts.root.insertBefore(t.el, catParts.band); }
 // ribbons are simulated in world space and drawn in the cat's local space: behind the band/head when trailing, in front of the head when swinging forward
 function toLocal(pt) {
   const s = cat; const r = rad(s.rot); const c = Math.cos(r); const sn = Math.sin(r);
@@ -206,7 +206,7 @@ function updateScarf(dt) {
     d += `L${f(nl[0])} ${f(nl[1])}`;
     for (let i = n - 1; i >= 0; i--) d += `L${f(Rl[i][0])} ${f(Rl[i][1])}`;
     t.el.setAttribute('d', d + 'Z');
-    t.el.setAttribute('fill', midCos >= 0 ? '#FF4F9A' : '#C2306F');                    // darker underside when the ribbon twists over
+    t.el.setAttribute('fill', midCos >= 0 ? '#FF2E88' : '#C2306F');                    // darker underside when the ribbon twists over
     // trailing -> behind the body; swinging forward -> in front (hysteresis so it doesn't flicker)
     const fwd = P[5][0] - K[0];
     const wantFront = t.front ? fwd > 0 : fwd > 10;

@@ -57,7 +57,7 @@ function buildings() {
 
 const street = () => `<rect x="-700" y="${STREET}" width="1800" height="220" fill="url(#gGround)"/><rect x="-700" y="${STREET}" width="1800" height="2.5" fill="#4A4488"/>
   ${[0, 1, 2, 3, 4, 5].map((i) => `<rect x="${200 + i * 5}" y="${STREET + 10}" width="2" height="7" rx="1" fill="#2B2650"/>`).join('')}
-  <ellipse cx="${roofX(1) + 24}" cy="${STREET + 14}" rx="40" ry="5" fill="#FF4F9A" opacity=".2"/><ellipse cx="${roofX(1) + 24}" cy="${STREET + 14}" rx="22" ry="2.4" fill="#FF86BA" opacity=".24"/>
+  <ellipse cx="${roofX(1) + 24}" cy="${STREET + 14}" rx="40" ry="5" fill="#FF2E88" opacity=".2"/><ellipse cx="${roofX(1) + 24}" cy="${STREET + 14}" rx="22" ry="2.4" fill="#FF86BA" opacity=".24"/>
   <ellipse cx="260" cy="${STREET + 26}" rx="30" ry="3.4" fill="#8B86B8" opacity=".12"/>`;
 
 const bins = () => BINS.map((x, i) => `<g class="bin" data-i="${i}" transform="translate(${x} ${STREET - 26}) scale(.86)">${binSVG(BIN_W)}</g>`).join('');
@@ -135,7 +135,9 @@ export function createScene(host) {
   /* ------------------------------------------------------------------ camera */
   const cam = { cx: 190, yb: 246, w: 384, top: THIEF_TOP };
   let reserve = 0; // extra screen px kept free at the top (room for the name plate during the catch)
-  const safeTop = () => (sceneEl.clientWidth >= 900 ? 132 : 8) + reserve; // clear of the HUD / pips / lanterns
+  let safe = 8;
+  const readSafe = () => { const v = parseFloat(getComputedStyle(sceneEl).getPropertyValue('--safe-top')); safe = Number.isFinite(v) ? v : (sceneEl.clientWidth >= 900 ? 132 : 8); };
+  const safeTop = () => safe + reserve; // clear of the HUD / pips / lanterns
 
   function render() {
     const cw = sceneEl.clientWidth;
@@ -167,8 +169,8 @@ export function createScene(host) {
 
   function target(m = mode) {
     if (m === 'chase') {
-      const left = roofX(roof) - 4;
-      const right = roofRight(THIEF_ROOF) - 2;
+      const left = roofX(roof) - 26;
+      const right = roofRight(THIEF_ROOF) + 12;
       return { cx: (left + right) / 2, yb: 246, w: right - left, top: THIEF_TOP };
     }
     if (m === 'thief') return { cx: roofX(THIEF_ROOF) + W / 2 - 6, yb: 216, w: 150, top: THIEF_TOP - 34 };
@@ -179,7 +181,7 @@ export function createScene(host) {
     return { cx: 190, yb: 246, w: 384, top: THIEF_TOP };
   }
   const frame = (m = mode, ms = 350) => { mode = m; $('#thiefLabel').style.opacity = m === 'chase' && thiefState === 'here' ? 1 : 0; return camTo(target(m), ms); };
-  const ro = new ResizeObserver(() => render());
+  const ro = new ResizeObserver(() => { readSafe(); render(); });
   ro.observe(sceneEl);
 
   /* ------------------------------------------------------------------ helpers */
@@ -398,6 +400,7 @@ export function createScene(host) {
     el: host, svg, sceneEl, overlay: () => $('#overlay'), rt,
     frame, camTo, render, getMode: () => mode,
     setReserve: (px) => { reserve = px; render(); },
+    refit: () => { readSafe(); render(); },
     lamp, setLight, thiefGlow, dim, spotlight,
     catAnim, catAsync: catAnim, thiefAnim, thiefAsync: thiefAnim, pausePlayers, resumePlayers,
     placeCat, placeThief, catArc, catDrop, thiefRun, walkTo,

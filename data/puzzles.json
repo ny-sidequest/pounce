@@ -10,11 +10,11 @@
         "link_note": "The RV meth lab, Los Pollos Hermanos, set in New Mexico, Jesse Pinkman, and Walter White's alias Heisenberg."
       },
       "clues": [
-        {"q": "What two-letter name do Americans use for a motorhome?", "answer": "RV", "aliases": ["rv", "r.v.", "recreational vehicle"], "near_misses": ["camper", "van", "caravan"]},
-        {"q": "What is the Spanish word for chicken?", "answer": "Pollo", "aliases": ["pollo", "el pollo"], "near_misses": ["polla", "gallo", "pavo"]},
-        {"q": "Albuquerque is the largest city in which US state?", "answer": "New Mexico", "aliases": ["new mexico", "nm"], "near_misses": ["mexico", "arizona", "texas"]},
-        {"q": "Which American sprinter won four golds at the 1936 Berlin Olympics?", "answer": "Jesse Owens", "aliases": ["jesse owens", "owens", "james cleveland owens"], "near_misses": ["carl lewis", "usain bolt", "jesse jackson"]},
-        {"q": "Which German physicist is known for the uncertainty principle?", "answer": "Werner Heisenberg", "aliases": ["heisenberg", "werner heisenberg"], "near_misses": ["einstein", "schrodinger", "planck", "bohr"]}
+        {"q": "What two-letter name do Americans use for a motorhome?", "answer": "RV", "aliases": ["rv", "r.v.", "recreational vehicle"], "near_misses": ["camper", "van", "caravan"], "link": "The RV is Walter White and Jesse's mobile meth lab."},
+        {"q": "What is the Spanish word for chicken?", "answer": "Pollo", "aliases": ["pollo", "el pollo"], "near_misses": ["polla", "gallo", "pavo"], "link": "Los Pollos Hermanos is the fried-chicken front for Gus Fring."},
+        {"q": "Albuquerque is the largest city in which US state?", "answer": "New Mexico", "aliases": ["new mexico", "nm"], "near_misses": ["mexico", "arizona", "texas"], "link": "The show is set in Albuquerque, New Mexico."},
+        {"q": "Which American sprinter won four golds at the 1936 Berlin Olympics?", "answer": "Jesse Owens", "aliases": ["jesse owens", "owens", "james cleveland owens"], "near_misses": ["carl lewis", "usain bolt", "jesse jackson"], "link": "Jesse Pinkman shares his first name with the sprinter."},
+        {"q": "Which German physicist is known for the uncertainty principle?", "answer": "Werner Heisenberg", "aliases": ["heisenberg", "werner heisenberg"], "near_misses": ["einstein", "schrodinger", "planck", "bohr"], "link": "Walter White's alias is Heisenberg."}
       ]
     },
     {
@@ -26,11 +26,11 @@
         "link_note": "Songs Numb and Crawling, debut album Hybrid Theory, and the name itself: Lincoln + Park (after Lincoln Park in Santa Monica)."
       },
       "clues": [
-        {"q": "What word describes a body part you can't feel, like a sleeping foot?", "answer": "Numb", "aliases": ["numb", "numbness"], "near_misses": ["dead", "asleep", "tingly"]},
-        {"q": "What do babies do on their hands and knees before they walk?", "answer": "Crawl", "aliases": ["crawl", "crawling", "crawls"], "near_misses": ["creep", "scoot", "roll"]},
-        {"q": "What do you call a car that runs on both petrol and electricity?", "answer": "Hybrid", "aliases": ["hybrid", "hybrid car", "a hybrid"], "near_misses": ["electric", "ev", "plug-in"]},
-        {"q": "Which US president is on the five-dollar bill?", "answer": "Abraham Lincoln", "aliases": ["lincoln", "abraham lincoln", "abe lincoln"], "near_misses": ["washington", "hamilton", "jefferson", "jackson"]},
-        {"q": "Which 1993 Steven Spielberg film brings dinosaurs back to life?", "answer": "Jurassic Park", "aliases": ["jurassic park"], "near_misses": ["jurassic world", "the lost world", "jaws"]}
+        {"q": "What word describes a body part you can't feel, like a sleeping foot?", "answer": "Numb", "aliases": ["numb", "numbness"], "near_misses": ["dead", "asleep", "tingly"], "link": "Numb is one of Linkin Park's biggest songs."},
+        {"q": "What do babies do on their hands and knees before they walk?", "answer": "Crawl", "aliases": ["crawl", "crawling", "crawls"], "near_misses": ["creep", "scoot", "roll"], "link": "Crawling is a Linkin Park song from Hybrid Theory."},
+        {"q": "What do you call a car that runs on both petrol and electricity?", "answer": "Hybrid", "aliases": ["hybrid", "hybrid car", "a hybrid"], "near_misses": ["electric", "ev", "plug-in"], "link": "Hybrid Theory is Linkin Park's debut album."},
+        {"q": "Which US president is on the five-dollar bill?", "answer": "Abraham Lincoln", "aliases": ["lincoln", "abraham lincoln", "abe lincoln"], "near_misses": ["washington", "hamilton", "jefferson", "jackson"], "link": "Lincoln is the first half of the band's name."},
+        {"q": "Which 1993 Steven Spielberg film brings dinosaurs back to life?", "answer": "Jurassic Park", "aliases": ["jurassic park"], "near_misses": ["jurassic world", "the lost world", "jaws"], "link": "Park is the second half of the band's name."}
       ]
     },
     {
@@ -42,11 +42,11 @@
         "link_note": "Roles he played: Chaplin (1992), Dolittle (2020), Oppenheimer (Oscar win), Sherlock Holmes, and Iron Man."
       },
       "clues": [
-        {"q": "Which silent-film comedian was famous as 'The Tramp'?", "answer": "Charlie Chaplin", "aliases": ["chaplin", "charlie chaplin", "charles chaplin"], "near_misses": ["buster keaton", "harold lloyd", "mr bean"]},
-        {"q": "Which fictional doctor can talk to animals?", "answer": "Doctor Dolittle", "aliases": ["dolittle", "doctor dolittle", "dr dolittle", "dr. dolittle"], "near_misses": ["doctor who", "doctor strange", "dr seuss"]},
-        {"q": "Which 2023 Christopher Nolan film won the Oscar for Best Picture?", "answer": "Oppenheimer", "aliases": ["oppenheimer"], "near_misses": ["barbie", "interstellar", "tenet", "inception"]},
-        {"q": "Which fictional detective lives at 221B Baker Street?", "answer": "Sherlock Holmes", "aliases": ["sherlock", "holmes", "sherlock holmes"], "near_misses": ["poirot", "watson", "columbo"]},
-        {"q": "Which metal is the main ingredient in steel?", "answer": "Iron", "aliases": ["iron", "fe"], "near_misses": ["carbon", "aluminium", "aluminum", "nickel"]}
+        {"q": "Which silent-film comedian was famous as 'The Tramp'?", "answer": "Charlie Chaplin", "aliases": ["chaplin", "charlie chaplin", "charles chaplin"], "near_misses": ["buster keaton", "harold lloyd", "mr bean"], "link": "Robert Downey Jr. played him in Chaplin (1992), his first Oscar nomination."},
+        {"q": "Which fictional doctor can talk to animals?", "answer": "Doctor Dolittle", "aliases": ["dolittle", "doctor dolittle", "dr dolittle", "dr. dolittle"], "near_misses": ["doctor who", "doctor strange", "dr seuss"], "link": "He played the title role in Dolittle (2020)."},
+        {"q": "Which 2023 Christopher Nolan film won the Oscar for Best Picture?", "answer": "Oppenheimer", "aliases": ["oppenheimer"], "near_misses": ["barbie", "interstellar", "tenet", "inception"], "link": "His role as Lewis Strauss won him the Oscar for Best Supporting Actor."},
+        {"q": "Which fictional detective lives at 221B Baker Street?", "answer": "Sherlock Holmes", "aliases": ["sherlock", "holmes", "sherlock holmes"], "near_misses": ["poirot", "watson", "columbo"], "link": "He played Holmes in Sherlock Holmes (2009) and its 2011 sequel."},
+        {"q": "Which metal is the main ingredient in steel?", "answer": "Iron", "aliases": ["iron", "fe"], "near_misses": ["carbon", "aluminium", "aluminum", "nickel"], "link": "Tony Stark, Iron Man (2008), the role that defined him."}
       ]
     }
   ]

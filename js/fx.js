@@ -1,7 +1,7 @@
 // Visual effects: pixel sparks, floating points, toast.
 export const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const COLORS = ['#FFB238', '#FF4F9A', '#F4E7C3', '#FFB238'];
+const COLORS = ['#FFB238', '#FF2E88', '#F4E7C3', '#FFB238'];
 
 function layer() {
   const el = document.createElement('div');

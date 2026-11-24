@@ -49,21 +49,45 @@ test('worked example totals 7,665', () => {
   assert.equal(p.phase, 'done');
 });
 
-test('titles', () => {
-  assert.equal(E.titleFor(worked()).title, 'Alley genius');
-  const names = [1, 2, 3, 4, 5].map((n) => {
-    const pr = { pounce: { status: 'correct', afterQ: n } };
-    return E.titleFor(pr).title;
-  });
-  assert.deepEqual(names, ['Psychic cat', 'Alley genius', 'Curious cat', 'Sleepy kitten', 'Cardboard box']);
-  assert.equal(E.titleFor({ pounce: { status: 'wrong', afterQ: 2 } }).title, 'Bin diver');
-  assert.equal(E.titleFor({ pounce: { status: 'none' } }).title, 'Scaredy cat');
+const scored = (score, status = 'correct') => ({ results: [{ points: score }], pounce: { status, points: 0, afterQ: 1, guess: status === 'wrong' ? 'x' : null } });
+
+test('titles come from the score bands', () => {
+  const at = (n) => E.bandForScore(n, true).title;
+  assert.equal(at(10000), 'Psychic cat'); assert.equal(at(8500), 'Psychic cat');
+  assert.equal(at(8499), 'Alley genius'); assert.equal(at(7000), 'Alley genius');
+  assert.equal(at(6999), 'Curious cat'); assert.equal(at(6000), 'Curious cat');
+  assert.equal(at(5999), 'Sleepy kitten'); assert.equal(at(5000), 'Sleepy kitten');
+  assert.equal(at(4999), 'Stray cat'); assert.equal(at(2000), 'Stray cat');
+  assert.equal(at(1999), 'Lost kitten'); assert.equal(at(0), 'Lost kitten');
+  assert.equal(E.titleFor(worked()).title, 'Alley genius'); // 7,665
+});
+
+test('catch rule: no catch caps the title at Stray cat', () => {
+  assert.equal(E.bandForScore(5000, false).title, 'Stray cat');
+  assert.equal(E.bandForScore(5000, true).title, 'Sleepy kitten');
+  assert.equal(E.bandForScore(9000, false).title, 'Stray cat');
+  assert.equal(E.bandForScore(1500, false).title, 'Lost kitten'); // the cap never raises a title
+  for (const st of ['wrong', 'none']) assert.equal(E.titleFor(scored(5000, st)).title, 'Stray cat');
+  assert.equal(E.titleFor(scored(5000, 'correct')).title, 'Sleepy kitten');
+});
+
+test('bands tile 0..10000 with no gaps', () => {
+  for (let n = 0; n <= 10000; n += 1) assert.ok(E.bandForScore(n, true).min <= n && n <= E.bandForScore(n, true).max);
+});
+
+test('event line and outcome', () => {
+  assert.equal(E.eventLine(worked()), 'Caught the thief · Speed 3,665 + Pounce 4,000');
+  assert.equal(E.outcomeFor(worked()), 'caught');
+  assert.equal(E.eventLine(scored(100, 'wrong')), 'Pounced on the wrong cat');
+  const timeout = { results: [], pounce: { status: 'wrong', guess: null, points: 0 } };
+  assert.equal(E.eventLine(timeout), 'The thief slipped away'); assert.equal(E.outcomeFor(timeout), 'timeout');
+  assert.equal(E.eventLine(scored(100, 'none')), 'Never leapt'); assert.equal(E.outcomeFor(scored(100, 'none')), 'never');
 });
 
 test('share card matches the worked example exactly', () => {
   assert.equal(
-    E.shareText(worked()),
-    'Pounce · Night #1 · Alley genius\n✅✅🐾✅⚡❌⚡\nCaught the thief from 4.0m · 7,665\nWho\'s under the mask? → pounce.io'
+    E.shareText(worked(), { betterThanPct: 74 }),
+    'Pounce · Night #1 · Alley genius\n✅✅🐾✅⚡❌⚡\nCaught the thief from 4.0m · 7,665\nBetter than 74% of cats\nWho\'s under the mask? → pounce.io'
   );
 });
 
@@ -79,7 +103,7 @@ test('share line: wrong pounce, never pounced, fast threshold', () => {
   p = play(Array.from({ length: 5 }, () => ({ q: { status: 'correct', time: 5 } })));
   p = E.skipFinal(p);
   assert.equal(E.shareLine(p), '✅✅✅✅✅');
-  assert.match(E.shareText(p), /Scaredy cat/);
+  assert.match(E.shareText(p), /Stray cat/);
 });
 
 test('normalize', () => {
