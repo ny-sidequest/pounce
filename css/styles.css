@@ -445,3 +445,5 @@ input:focus-visible { outline-offset: 0; }
 .res-art { overflow: visible; }
 .story-intro { font-size: 18px; }
 .home-cat { left: 40px; }
+.home .logo-block { background: transparent; }
+@media (min-width: 900px) { .home-cat svg { width: 190px; } .home-cat { left: 60px; } }
