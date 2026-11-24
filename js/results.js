@@ -1,9 +1,8 @@
 // Results: the case file. Large header scene, the unmasking card, stacked trail rows, the share card.
 import { totals, titleFor, shareText, formatNumber as fmt, MAX_SCORE, leapMeters, gapMeters } from './engine.js';
-import { C, rect, rainHTML } from './pixel.js';
+import { rainHTML } from './rain.js';
 import { resultsArt } from './art.js';
-import { THIEF } from './sprite-thief.js';
-import { spriteImg } from './portraits.js';
+import { portrait } from './portraits.js';
 import { escapeHTML } from './scene.js';
 import { toast, sparkBurst } from './fx.js';
 import { autoFit } from './fit.js';
@@ -35,7 +34,7 @@ async function share(text) {
 }
 
 const lampIcon = (lit) =>
-  `<svg class="bd-lan" viewBox="0 0 3 5" shape-rendering="crispEdges" aria-hidden="true">${rect(0, 0, 3, 1, C.line)}${rect(0, 1, 3, 3, lit ? C.amber : '#26233F')}${rect(1, 2, 1, 1, lit ? '#FFE9B0' : C.dim)}${rect(0, 4, 3, 1, C.line)}</svg>`;
+  `<svg class="bd-lan" viewBox="0 0 12 16" aria-hidden="true"><path d="M2 6 Q2 2 6 2 Q10 2 10 6Z" fill="#3A3666"/><path d="M2.6 6 L9.4 6 L8.6 12.5 Q6 14 3.4 12.5 Z" fill="${lit ? '#FFB238' : '#26233F'}" stroke="${lit ? '#B87A1C' : '#5E5A8A'}" stroke-width=".7"/><ellipse cx="6" cy="9.5" rx="1.2" ry="2" fill="${lit ? '#FFE9B0' : '#5E5A8A'}"/></svg>`;
 
 /** opts.shareText overrides the share preview (screenshots only). */
 export function renderResults(root, puzzle, p, { onHome, shareText: shareOverride } = {}) {
@@ -88,7 +87,7 @@ export function renderResults(root, puzzle, p, { onHome, shareText: shareOverrid
       </div>
 
       <div class="connect-card">
-        <div class="cc-face" aria-hidden="true">${spriteImg(THIEF, 'unmasked', 0, 112)}</div>
+        <div class="cc-face" aria-hidden="true">${portrait('thief', 'unmasked', 118)}</div>
         <div class="cc-text">
           <p class="cc-label">THE THIEF WAS…</p>
           <h2 class="cc-name fit">${escapeHTML(puzzle.connect.answer)}</h2>

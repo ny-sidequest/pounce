@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pounce rigs (dev): every pose and animation</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;500&family=Pixelify+Sans:wght@500;700&family=VT323&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; background: #0B0A1A; color: #F4E7C3; font: 500 16px Fredoka, sans-serif; }
+  h1 { font: 600 20px Fredoka, sans-serif; margin: 12px 16px 0; } p { margin: 4px 16px; color: #8B86B8; font-family: Inter, sans-serif; font-size: 14px; }
+  h2 { margin: 18px 16px 6px; font-size: 16px; color: #FFB238; }
+  .grid { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 12px 16px; }
+  .cell { width: 190px; border: 2px solid #3A3666; background: #120F2B; } .cell.grey { background: #8a8a8a; color: #111; }
+  .cell svg { display: block; width: 100%; height: 190px; } .cell small { display: block; padding: 2px 8px 4px; font-size: 14px; }
+</style></head><body>
+<h1>POUNCE rigs · every pose and animation (vector)</h1>
+<p>Each cell is a live rig on its own 60fps runtime. Animations replay on a loop; the rig is the same one the game uses.</p>
+<div id="root"></div>
+<script type="module">
+import { ensureDefs } from './js/defs.js';
+import { Runtime } from './js/motion.js';
+import { el } from './js/svgx.js';
+import { createCat } from './js/rig-cat.js';
+import { createThief } from './js/rig-thief.js';
+ensureDefs();
+const root = document.getElementById('root');
+function cell(grid, label, grey, build) {
+  const c = document.createElement('div'); c.className = 'cell' + (grey ? ' grey' : '');
+  c.innerHTML = `<svg viewBox="-110 -200 220 220"></svg><small>${label}</small>`; grid.appendChild(c);
+  const svg = c.querySelector('svg'); const rt = new Runtime(); build(svg, rt);
+}
+function section(title, names, mk) {
+  const h = document.createElement('h2'); h.textContent = title; root.appendChild(h);
+  const g = document.createElement('div'); g.className = 'grid'; root.appendChild(g);
+  for (const n of names) for (const grey of [false, true]) cell(g, n + (grey ? ' · grey' : ''), grey, (svg, rt) => mk(svg, rt, n));
+}
+const CAT_ACTIONS = ['idle', 'alert', 'droop', 'hop', 'crouch', 'leap', 'land', 'swat', 'sit_smug', 'realize', 'fall', 'bin', 'walk'];
+const CAT_TITLES = ['title_psychic', 'title_cool', 'title_tilt', 'title_sleepy', 'title_box', 'title_bin', 'title_scaredy'];
+const THIEF_ACTIONS = ['sneak', 'glance', 'spooked', 'stagger', 'sack_drop', 'unmasked', 'tied', 'hat_tip', 'run'];
+const catMk = (svg, rt, n) => { const g = el('g', {}, svg); const c = createCat(g, rt, { scale: 1 }); c.place(-5, -4);
+  const go = async () => { c.resetState(); c.state.mode = 'idle'; await c.play('idle'); await rt.wait(300); await c.play(n); await rt.wait(1400); go(); };
+  if (n.startsWith('title_')) { c.play(n); c.settle(); } else go(); };
+const thMk = (svg, rt, n) => { const g = el('g', {}, svg); const t = createThief(g, rt, { scale: 0.9 }); t.place(0, -2);
+  const go = async () => { t.resetState(); await rt.wait(300); await t.play(n); await rt.wait(1500); go(); }; go(); };
+section('Cat · actions', CAT_ACTIONS, catMk);
+section('Cat · title poses', CAT_TITLES, catMk);
+section('Thief', THIEF_ACTIONS, thMk);
+</script></body></html>

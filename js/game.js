@@ -9,7 +9,7 @@ import {
   resolvePounce, skipFinal, applyReload
 } from './engine.js';
 import { createScene, escapeHTML } from './scene.js';
-import { rainHTML } from './pixel.js';
+import { rainHTML } from './rain.js';
 import { sparkBurst, floatPoints, reducedMotion } from './fx.js';
 import { fitText } from './fit.js';
 import { sfx, isSoundOn, setSound } from './audio.js';
