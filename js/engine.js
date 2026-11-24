@@ -133,8 +133,10 @@ export function outcomeFor(progress) {
 /** The line under the score saying what happened. */
 export function eventLine(progress) {
   const o = outcomeFor(progress);
-  if (o === 'caught') { const t = totals(progress); return `Caught the thief · Speed ${formatNumber(t.speed)} + Pounce ${formatNumber(t.pounce)}`; }
-  return o === 'wrong' ? 'Pounced on the wrong cat' : o === 'timeout' ? 'The thief slipped away' : 'Never leapt';
+  const t = totals(progress);
+  if (o === 'caught') return `Caught the thief · Speed ${formatNumber(t.speed)} + Pounce ${formatNumber(t.pounce)}`;
+  const head = o === 'wrong' ? 'Named the wrong thief' : o === 'timeout' ? 'Froze mid-pounce' : 'Never pounced';
+  return `${head} · Speed ${formatNumber(t.speed)}`;
 }
 
 /* ------------------------------------------------------------- share card */
@@ -202,15 +204,28 @@ export function leapLine(progress) {
   return `${head} · ${formatNumber(total)}`;
 }
 
-/** opts.betterThanPct adds the "Better than X% of cats" line (omitted while stats are unknown). */
-export function shareText(progress, opts = {}) {
-  const { domain = 'pounce.io', betterThanPct = null } = typeof opts === 'string' ? { domain: opts } : opts;
+/**
+ * The trail line: six symbols, the first five line up with the five clues.
+ * caught after clue k:  🐾 x (k-1), 🐈‍⬛, ⬛ x (5-k), 🥷      wrong thief / timeout after k: 🐾 x (k-1), 🗑️, ⬛ x (5-k), 💨
+ * never pounced: 🐾 x 5, 💨
+ */
+export function trailLine(progress) {
+  const p = progress.pounce;
+  if (p.status === 'none') return '🐾'.repeat(5) + '💨';
+  const k = p.afterQ;
+  return '🐾'.repeat(k - 1) + (p.status === 'correct' ? '🐈‍⬛' : '🗑️') + '⬛'.repeat(5 - k) + (p.status === 'correct' ? '🥷' : '💨');
+}
+
+export const DEFAULT_SHARE_URL = 'ny-sidequest.github.io/pounce';
+
+/** The five-line share text (WhatsApp friendly). */
+export function shareText(progress, url = DEFAULT_SHARE_URL) {
   return [
-    `Pounce · Night #${progress.puzzleId} · ${titleFor(progress).title}`,
-    shareLine(progress),
-    leapLine(progress),
-    ...(betterThanPct == null ? [] : [`Better than ${betterThanPct}% of cats`]),
-    `Who's under the mask? → ${domain}`
+    `Pounce #${progress.puzzleId} 🐈‍⬛`,
+    `${formatNumber(totals(progress).total)}/${formatNumber(MAX_SCORE)} · ${titleFor(progress).title}`,
+    trailLine(progress),
+    progress.results.map((r) => (r.status === 'correct' ? '✅' : '❌')).join(''),
+    url
   ].join('\n');
 }
 

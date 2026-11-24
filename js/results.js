@@ -1,6 +1,8 @@
 // Results: score and curve, cat ranks, the trail. Built from design/Main.dc.html.
 // Stats come from js/stats.js (mock today, the backend later): the page renders at once with placeholders, then fills in.
-import { totals, titleFor, eventLine, shareText, formatNumber as fmt, leapMeters, BANDS, outcomeFor } from './engine.js';
+import { totals, titleFor, eventLine, shareText, formatNumber as fmt, leapMeters, BANDS } from './engine.js';
+import { CONFIG } from './config.js';
+import { numHTML } from './num.js';
 import { escapeHTML } from './scene.js';
 import { toast, sparkBurst } from './fx.js';
 import { autoFit } from './fit.js';
@@ -25,13 +27,18 @@ async function copyText(text) {
   }
 }
 
-/** Web Share on phones, clipboard everywhere else (and whenever sharing is cancelled by an error) */
-export async function share(text) {
-  const touch = window.matchMedia('(pointer: coarse)').matches;
-  if (touch && navigator.share) {
-    try { await navigator.share({ text }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
-  }
-  toast((await copyText(text)) ? 'Copied!' : 'Could not copy. Select the card text instead');
+export const whatsappUrl = (text) => 'https://wa.me/?text=' + encodeURIComponent(text);
+
+/** Opens WhatsApp with the result; same-tab fallback when the popup is blocked */
+export function shareWhatsApp(text) {
+  const url = whatsappUrl(text);
+  if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') console.log('[share]', url);
+  const w = window.open(url, '_blank');
+  if (!w) location.href = url;
+}
+
+export async function copyResult(text) {
+  toast((await copyText(text)) ? 'Copied. Paste it anywhere.' : 'Couldn’t copy. Try SHARE ON WHATSAPP instead.', 2000);
 }
 
 const ICON_BACK = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>';
@@ -143,7 +150,7 @@ function clueCards(puzzle, p, stats) {
     const foot = !ok && (r.guess || (c && c.index === hardest))
       ? `<p class="cc-foot">${r.guess ? `You guessed "${escapeHTML(String(r.guess).toLowerCase())}"` : 'No answer'}${c && c.index === hardest ? ' · the hardest clue tonight' : ''}</p>` : '';
     const pill = pz.status !== 'none' && pz.afterQ === i + 1
-      ? `<div class="pounce-pill${verdict === 'caught' ? '' : ' bad'}">${ICON_PAW}${verdict === 'caught' ? 'You pounced here and caught the thief' : verdict === 'wrong' ? 'You pounced here and picked the wrong cat' : 'You pounced here but time ran out'}</div>` : '';
+      ? `<div class="pounce-pill${verdict === 'caught' ? '' : ' bad'}">${ICON_PAW}${verdict === 'caught' ? 'You pounced here · caught' : 'You pounced here · wrong thief'}</div>` : '';
     return `
       <article class="clue-card${ok ? '' : ' missed'}">
         <div class="cc-top"><span class="cc-n">CLUE ${i + 1}</span><span class="cc-q">${escapeHTML(clue.q)}</span></div>
@@ -166,7 +173,7 @@ function thiefCard(puzzle, stats) {
       <h3 class="n fit">${escapeHTML(puzzle.connect.answer)}</h3>
       <p class="d">${escapeHTML(puzzle.connect.link_note)}</p>
       <div class="stats3" style="grid-template-columns: repeat(2, minmax(0, 1fr))">
-        <div class="stat"><small>Caught the thief</small><b>${stats ? stats.caughtPct + '%' : dash}</b></div>
+        <div class="stat"><small>Caught it</small><b>${stats ? stats.caughtPct + '%' : dash}</b></div>
         <div class="stat"><small>Most pounced</small><b>${stats ? 'After clue ' + stats.mostPouncedAfterClue : dash}</b></div>
       </div>
       ${wrong ? `<p class="w">Top wrong guess: "${escapeHTML(wrong.text)}" · ${fmt(wrong.count)} cats</p>` : ''}
@@ -195,7 +202,7 @@ export function renderResults(root, puzzle, p, { onHome, shareText: shareOverrid
   const caught = pz.status === 'correct';
   let stats = null;
   let pct = null;
-  const textNow = () => shareOverride ?? shareText(p, { betterThanPct: pct });
+  const textNow = () => shareOverride ?? shareText(p, CONFIG.shareUrl);
 
   const page = document.createElement('div');
   root.innerHTML = '';
@@ -203,18 +210,17 @@ export function renderResults(root, puzzle, p, { onHome, shareText: shareOverrid
   page.className = 'screen res';
 
   function paint() {
-    const text = textNow();
-    const note = stats && stats.source === 'fallback' ? '<p class="res-played">Live stats unavailable</p>' : '';
+    const note = stats && stats.source === 'fallback' ? '<p class="res-played">Tonight’s stats are napping. Showing sample numbers.</p>' : (!CONFIG.statsUrl ? '<p class="res-played">Sample numbers · live stats coming soon.</p>' : '');
     page.innerHTML = `
     <header class="res-top">
       <button class="sq-btn" id="backBtn" aria-label="Back to home">${ICON_BACK}</button>
       <div class="res-night">NIGHT #${puzzle.id}</div>
-      <button class="sq-btn" id="shareTop" aria-label="Share result">${ICON_SHARE}</button>
+      <button class="sq-btn" id="shareTop" aria-label="Share on WhatsApp">${ICON_SHARE}</button>
     </header>
 
     <section class="res-hero" aria-labelledby="score-h">
       <div class="res-score-row">
-        <h1 class="res-score" id="score-h">${fmt(total)}</h1>
+        <h1 class="res-score" id="score-h">${numHTML(total)}</h1>
         ${caught ? `<span class="res-leapt">LEAPT ${leapMeters(pz.points).toFixed(1)} M</span>` : ''}
       </div>
       <div class="res-rank fit">${escapeHTML(t.title)}</div>
@@ -238,15 +244,15 @@ export function renderResults(root, puzzle, p, { onHome, shareText: shareOverrid
       <div class="clues">${clueCards(puzzle, p, stats)}${thiefCard(puzzle, stats)}</div>
     </section>
 
-    <section class="sec" id="share" aria-labelledby="share-h">
-      <h2 class="sec-h" id="share-h">SHARE</h2>
-      <pre class="share-card" aria-label="Share card preview">${escapeHTML(text)}</pre>
+    <section class="sec res-share" id="share">
       <div class="res-actions">
-        <button class="btn btn-neon" id="shareBtn">Share</button>
+        <button class="btn btn-neon" id="shareBtn">SHARE ON WHATSAPP ▸</button>
         <button class="btn btn-ghost" id="homeBtn">Home</button>
       </div>
+      <button class="link-btn copy-link" id="copyBtn">Copy result</button>
     </section>`;
-    page.querySelectorAll('#shareBtn, #shareTop').forEach((b) => b.addEventListener('click', () => share(textNow())));
+    page.querySelectorAll('#shareBtn, #shareTop').forEach((b) => b.addEventListener('click', () => shareWhatsApp(textNow())));
+    page.querySelector('#copyBtn').addEventListener('click', () => copyResult(textNow()));
     page.querySelectorAll('#homeBtn, #backBtn').forEach((b) => b.addEventListener('click', onHome));
     autoFit(page, '.fit', { min: 15 });
   }

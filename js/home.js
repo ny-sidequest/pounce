@@ -4,6 +4,7 @@ import { portrait } from './portraits.js';
 import { skylineLayer, moonSVG, starsSVG } from './world.js';
 import { logoHTML } from './logo.js';
 import { escapeHTML } from './scene.js';
+import { CONFIG } from './config.js';
 
 /**
  * nights: [{ id, state: 'new' | 'caught' | 'away', started?, name?, score?, title?, from? }]
@@ -12,13 +13,13 @@ export function homeHTML(nights) {
   const posters = nights.map((n) => {
     const label = `Night ${n.id}`;
     if (n.state === 'caught') {
-      return `<button class="poster poster--caught" data-id="${n.id}" aria-label="${label}, caught. The thief was ${escapeHTML(n.name)}. ${n.title}, score ${n.score}, from ${n.from}. See results">
+      return `<button class="poster poster--caught" data-id="${n.id}" aria-label="${label}, caught. The thief was ${escapeHTML(n.name)}. ${n.title}, score ${n.score}, leapt ${n.from}. See results">
         <span class="tape" aria-hidden="true"></span>
         <span class="wanted">WANTED</span>
         <span class="p-art">${portrait('thief', 'unmasked', 118)}</span>
         <span class="p-name fit">${escapeHTML(n.name)}</span>
         <span class="p-night">NIGHT #${n.id}</span>
-        <span class="p-meta"><b>${n.score}</b> · ${escapeHTML(n.title)}<br>from ${n.from}</span>
+        <span class="p-meta"><b>${n.score === '0' ? '<span class="z0">0</span>' : n.score}</b> · ${escapeHTML(n.title)}<br>Leapt ${n.from}</span>
         <span class="stamp" aria-hidden="true">CAUGHT</span>
         <span class="p-cta alt">SEE RESULTS</span>
       </button>`;
@@ -30,7 +31,7 @@ export function homeHTML(nights) {
         <span class="p-art">${portrait('thief', 'sneak', 118)}</span>
         <span class="p-name">GOT AWAY</span>
         <span class="p-night">NIGHT #${n.id}</span>
-        <span class="p-meta"><b>${n.score}</b> · ${escapeHTML(n.title)}</span>
+        <span class="p-meta"><b>${n.score === '0' ? '<span class="z0">0</span>' : n.score}</b> · ${escapeHTML(n.title)}</span>
         <span class="p-cta alt">SEE RESULTS</span>
       </button>`;
     }
@@ -41,7 +42,7 @@ export function homeHTML(nights) {
       <span class="p-name">?</span>
       <span class="p-night">NIGHT #${n.id}</span>
       <span class="p-meta">REWARD <b>5,000</b></span>
-      <span class="p-cta">${n.started ? '▸ RESUME' : '▸ PLAY'}</span>
+      <span class="p-cta">${n.started ? 'RESUME ▸' : 'PLAY ▸'}</span>
     </button>`;
   }).join('');
 
@@ -65,7 +66,7 @@ export function homeHTML(nights) {
         <div class="wall">${posters}</div>
         <div class="home-links">
           <button class="link-btn" id="howBtn">How to play</button>
-          <p class="foot">A prototype. <a href="#feedback">Tell us what you think</a></p>
+          <p class="foot">${CONFIG.launch ? '' : 'Early build. '}<a href="#feedback">Tell us what you think</a>${CONFIG.launch ? '' : '.'}</p>
         </div>
       </div>
     </div>

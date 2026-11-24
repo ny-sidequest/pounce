@@ -12,6 +12,7 @@ import {
 } from './engine.js';
 import { createScene, escapeHTML } from './scene.js';
 import { rainHTML } from './rain.js';
+import { numHTML } from './num.js';
 import { sparkBurst, reducedMotion } from './fx.js';
 import { fitText } from './fit.js';
 import { sfx, isSoundOn, setSound } from './audio.js';
@@ -22,7 +23,6 @@ import { recordRound } from './telemetry.js';
 import { runTimeline, clueSequence, catchSequence, fallSequence, letGoSequence } from './sequences.js';
 
 const $ = (root, sel) => root.querySelector(sel);
-const HEADS_UP = 'Heads up: the remaining clues are general knowledge, not about the thief.';
 const m1 = (g) => `${g.toFixed(1)} m`;
 const wait = (ms) => new Promise((r) => setTimeout(r, reducedMotion() ? Math.min(ms, 30) : ms));
 
@@ -205,7 +205,7 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
   function updateScore(animate = true) {
     const els = [$(root, '#score'), $(root, '#topScore')];
     const target = totals(p).total;
-    const show = (n) => els.forEach((e) => { e.textContent = fmt(n); });
+    const show = (n) => els.forEach((e) => { e.innerHTML = numHTML(n); });
     if (!animate || reducedMotion() || target === shownScore) { show(target); shownScore = target; return; }
     const from = shownScore;
     const t0 = performance.now();
@@ -236,7 +236,7 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
     let cat, label, dash = '#FFB238', thiefO = 1;
     if (st === 'chasing') { const x = 278 - 54 * g; cat = x; label = `${g.toFixed(1)} m`; }
     else if (st === 'caught') { cat = 262; label = 'CAUGHT'; dash = '#3DFFC8'; }
-    else { cat = 40; label = st === 'got_away' ? 'GOT AWAY' : 'ON FOOT'; dash = '#8E89C2'; thiefO = 0.35; }
+    else { cat = 40; label = 'ESCAPED'; dash = '#8E89C2'; thiefO = 0.35; }
     const mid = (cat + 24 + 296) / 2;
     const aria = st === 'chasing' ? `Chase progress: the cat is ${g.toFixed(1)} metres from the thief` : `Chase over: ${label.toLowerCase()}`;
     return `<svg viewBox="0 0 326 34" role="img" aria-label="${aria}">
@@ -254,7 +254,7 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
     const val = $(root, '#leapVal');
     box.className = 'hud-box hud-leap' + (st === 'on_foot' || st === 'got_away' ? ' foot' : st === 'caught' ? ' caught' : '');
     if (st === 'chasing') { lab.textContent = 'GAP'; val.textContent = formatMeters(gapForState(p)).replace('m', ' m'); val.className = 'val'; }
-    else { lab.textContent = ''; val.textContent = st === 'caught' ? 'CAUGHT' : st === 'on_foot' ? 'ON FOOT' : 'GOT AWAY'; val.className = 'val state'; }
+    else { lab.textContent = ''; val.textContent = st === 'caught' ? 'CAUGHT' : 'ESCAPED'; val.className = 'val state'; }
     $(root, '#pips').innerHTML = pipsHTML();
     $(root, '#strip').innerHTML = stripHTML();
     $(root, '#homeBtn').hidden = p.phase === 'pounce';
@@ -333,10 +333,10 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
         <h2 class="q-text">${escapeHTML(clue.q)}</h2>
         <form class="answer-form" id="aform" autocomplete="off">
           <label class="sr-only" for="ans">Your answer</label>
-          <input id="ans" type="text" enterkeyhint="go" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="type your answer">
+          <input id="ans" type="text" enterkeyhint="go" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Type your answer">
           <button class="btn btn-amber" type="submit" id="goBtn">GO</button>
         </form>
-        <p class="tries" id="tries" role="status">${MAX_ATTEMPTS} tries · answer clears the gap</p>
+        <p class="tries" id="tries" role="status">${MAX_ATTEMPTS} tries · ${p.pounce.status === 'none' ? 'faster answers score more' : 'speed points only'}</p>
       </div>`;
     const input = $(panel, '#ans');
     $(panel, '#goBtn').addEventListener('pointerdown', (e) => e.preventDefault()); // keep the keyboard open
@@ -376,8 +376,8 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
     const ok = r.status === 'correct';
     pillEl.className = 'res-pill' + (ok ? '' : ' miss');
     pillEl.innerHTML = ok
-      ? `<span><b>+${fmt(r.points)}</b><i>${escapeHTML(clue.answer)} · ${r.time.toFixed(1)} s</i></span>`
-      : `<span><b>0</b><i>Missed · it was ${escapeHTML(clue.answer)}</i></span>`;
+      ? `<span><b>+${fmt(r.points)}</b><i>· ${escapeHTML(clue.answer)} · ${r.time.toFixed(1)}s</i></span>`
+      : `<span><i>Missed · it was ${escapeHTML(clue.answer)}</i></span>`;
     void pillEl.offsetWidth;
     pillEl.classList.add('show');
   }
@@ -424,7 +424,7 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
     recordRound(p); // one anonymous event per finished night (never blocks the UI)
     const caught = chase() === 'caught';
     panel.innerHTML = `<div class="break">
-      <h2 class="break-title">${caught ? 'Case closed.' : 'It got away... this time.'}</h2>
+      <h2 class="break-title">${caught ? 'Case closed.' : 'The thief got away… this time.'}</h2>
       <button class="btn btn-neon" id="resultsBtn">SEE RESULTS ▸</button></div>`;
     $(panel, '#resultsBtn').addEventListener('click', () => onResults());
     updateHud();
@@ -434,6 +434,14 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
   function nextWithoutTap() {
     if (destroyed || p.phase !== 'break') return;
     if (isMobile()) showReady(); else showQuestion();
+  }
+
+  /** after the pounce is spent: one card, one tap. The tap opens the keyboard, so the clue appears right here. */
+  function showKeepGoing(text) {
+    stopTimer();
+    flow.go('decision');
+    panel.innerHTML = `<div class="break"><p class="heads-up">${text}</p><button class="btn btn-amber" id="keepBtn">KEEP GOING ▸</button></div>`;
+    $(panel, '#keepBtn').addEventListener('click', () => { if (destroyed || p.phase !== 'break') return; showQuestion({ afterHero: true }); }, { once: true });
   }
 
   function showReady() {
@@ -468,7 +476,7 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
 
     if (p.phase === 'final') {
       panel.innerHTML = `<div class="break">
-        <h2 class="break-title">Last chance: the thief is ${m1(gapForState(p))} away.</h2>
+        <h2 class="break-title">Last chance. The thief is ${m1(gapForState(p))} away.</h2>
         ${pounceBtn}
         <button class="btn btn-ghost" id="skipBtn">Let it go</button></div>`;
       $(panel, '#pounceBtn').addEventListener('click', openPounceBox);
@@ -477,7 +485,7 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
       return;
     }
     panel.innerHTML = `<div class="break">
-      <div><h2 class="break-title">The thief is ${m1(gapForState(p))} away.</h2><p class="break-sub">Leap now, or creep closer?</p></div>
+      <div><h2 class="break-title">The thief is ${m1(gapForState(p))} away.</h2><p class="break-sub">Pounce now, or creep closer?</p></div>
       ${pounceBtn}
       <button class="btn btn-ghost" id="nextBtn">Creep closer →</button>
       <div class="break-timer" aria-hidden="true"><div class="bt-bar"><div class="bt-fill" id="btFill"></div></div><span id="btText">Creeping closer in ${BREAK_SECONDS}s</span></div></div>`;
@@ -532,12 +540,12 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
       <div class="dlg-box pounce-box" id="pbBox">
         <h2 id="pdTitle">Who's under the mask?</h2>
         <p class="pb-sub">A ${m1(leapMeters(pounceValue(n)))} leap · worth <b>${fmt(pounceValue(n))}</b> · one shot</p>
-        <div class="q-meta"><span class="q-num">TIME TO LEAP</span><span class="timer-num" id="ptnum" aria-hidden="true">${POUNCE_SECONDS.toFixed(1)}</span></div>
+        <div class="q-meta"><span class="q-num">TIME TO POUNCE</span><span class="timer-num" id="ptnum" aria-hidden="true">${POUNCE_SECONDS.toFixed(1)}</span></div>
         ${strand('pstrand')}
         <form class="answer-form" id="pform" autocomplete="off">
           <label class="sr-only" for="pans">Name the thief</label>
           <input id="pans" type="text" enterkeyhint="go" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Name the thief">
-          <button class="btn btn-neon" type="submit" id="pgo">LEAP ▸</button>
+          <button class="btn btn-neon" type="submit" id="pgo">POUNCE ▸</button>
         </form>
         <p class="pb-msg" id="pmsg" role="status"></p>
         <button class="link-btn" id="pBack" type="button">Not yet</button>
@@ -588,7 +596,7 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
       box.classList.remove('shake');
       void box.offsetWidth;
       box.classList.add('shake');
-      $(pounceDlg, '#pmsg').textContent = 'Close! The mask slips... be more specific.';
+      $(pounceDlg, '#pmsg').textContent = 'Close! The mask slips… be more specific.';
       sfx.nope();
       input.value = '';
       input.focus({ preventScroll: true });
@@ -646,8 +654,8 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
           <div class="plate" role="status">
             <p class="plate-kicker">THE THIEF WAS…</p>
             <p class="plate-name fit">${escapeHTML(puzzle.connect.answer)}</p>
-            <p class="plate-sub">Caught from ${formatMeters(leapMeters(value))} · +${fmt(value)}</p>
-            <p class="plate-tap">tap to continue</p>
+            <p class="plate-sub">Leapt ${m1(leapMeters(value))} · +${fmt(value)}</p>
+            <p class="plate-tap">Tap to continue</p>
           </div>`;
         const plate = $(ov, '.plate');
         fitText($(ov, '.plate-name'), { min: 15 });
@@ -662,7 +670,7 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
   /** The catch: a timeline, then the heads-up card. */
   async function catchThief(value) {
     sfx.mrrp();
-    announce(`Caught from ${formatMeters(leapMeters(value))}. Plus ${value} points. The thief was ${puzzle.connect.answer}.`);
+    announce(`Leapt ${m1(leapMeters(value))}. Plus ${value} points. The thief was ${puzzle.connect.answer}.`);
     const ui = plateUI(value);
     await play(catchSequence(), { ui });
     if (destroyed) return;
@@ -679,29 +687,22 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
     await wait(450);
     if (destroyed) return;
     flow.go('decision');
-    panel.innerHTML = `<div class="break"><p class="heads-up">${HEADS_UP}</p><button class="btn btn-amber" id="huBtn">GOT IT ▸</button></div>`;
-    gate.hold();
-    $(panel, '#huBtn').addEventListener('click', () => {
-      gate.release();
-      if (destroyed || p.phase !== 'break') return;
-      showQuestion({ afterHero: true });
-    }, { once: true });
+    showKeepGoing('Case cracked. Finish the trail for speed points.');
   }
 
   /** Wrong pounce or timeout: the fall timeline, then the card. */
   async function fallShort(n, reason) {
-    const prefix = reason === 'timeout' ? 'Out of time. ' : '';
     const state = {};
     const ui = {
       showCard: () => new Promise((resolve) => {
         updateHud();
-        announce(`${prefix}You fell short at ${m1(leapMeters(pounceValue(n)))}. The thief got away.`);
+        announce(reason === 'timeout' ? `Too slow. You froze at ${m1(leapMeters(pounceValue(n)))}. The thief got away.` : 'Wrong thief. Into the bins. The thief got away, mask on.');
         const ov = overlay();
         ov.innerHTML = `
           <div class="plate plate--fall" role="status">
-            <p class="plate-kicker">SO CLOSE</p>
-            <p class="plate-name">The thief got away.</p>
-            <p class="plate-sub">${prefix}You fell short at ${m1(leapMeters(pounceValue(n)))}. The mask stays on.</p>
+            <p class="plate-kicker">${reason === 'timeout' ? 'TOO SLOW' : 'WRONG THIEF'}</p>
+            <p class="plate-name">${reason === 'timeout' ? 'The thief got away.' : 'Into the bins.'}</p>
+            <p class="plate-sub">${reason === 'timeout' ? `You froze at ${m1(leapMeters(pounceValue(n)))}.` : 'The thief got away, mask on.'}</p>
             <button class="btn btn-amber" id="climbBtn">Climb out →</button>
           </div>`;
         placeAbovePair($(ov, '.plate'));
@@ -718,7 +719,7 @@ export function mountGame(root, puzzle, initial, { onHome, onResults }) {
     await wait(450);
     if (destroyed) return;
     if (p.phase === 'done') showEnd();
-    else nextWithoutTap();
+    else showKeepGoing('No pounce left. Finish the trail for speed points.');
   }
 
   /* --------------------------------------------------------------- top bar UI */

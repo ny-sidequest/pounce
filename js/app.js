@@ -13,11 +13,12 @@ let game = null;
 let homeRig = null;
 
 /* ------------------------------------------------------------------ how to */
+const HOW_INTRO = 'A new masked thief every night. Only your cat is watching.';
 const HOW_STEPS = [
-  { art: () => portrait('thief', 'sneak', 64), title: 'A masked thief prowls the rooftops every night.', text: 'Nobody sees it.' },
-  { art: () => portrait('cat', 'idle', 44), title: 'Your cat is the only one watching.', text: 'Crack the clues to pick up its trail.' },
-  { art: () => '<span class="how-num">5.0m</span>', title: 'Crack the clues. Close the gap.', text: '5 clues, 20 seconds each, 3 tries. Each one brings you a roof closer.' },
-  { art: () => '<span class="how-num">5,000</span>', title: 'Pounce.', text: 'One pounce only. The earlier you pounce, the further the leap and the bigger the score. Land it and you unmask the thief. Miss, and it is into the bins.' }
+  { art: () => portrait('cat', 'idle', 44), title: 'Crack the clues.', text: '5 clues, 20 seconds each, 3 tries. Faster answers score more.' },
+  { art: () => '<span class="how-num">5.0 m</span>', title: 'Pounce or creep closer.', text: 'After each clue, pounce now or creep 1 m closer. Every metre you creep makes the pounce worth less: 5,000 after clue 1, 1,000 after clue 5.' },
+  { art: () => portrait('thief', 'sneak', 64), title: 'One pounce. Name the thief.', text: 'Get it right and the mask comes off. Get it wrong and it’s into the bins.' },
+  { art: () => '<span class="how-num">?</span>', title: 'Every clue points to the thief.', text: 'Spot the link and pounce early.' }
 ];
 
 function showHow(returnFocus) {
@@ -27,10 +28,11 @@ function showHow(returnFocus) {
   dlg.innerHTML = `
     <div class="dlg-box how-box">
       <h2 id="howTitle">HOW TO PLAY</h2>
+      <p class="how-intro">${HOW_INTRO}</p>
       <ol class="how-steps">
         ${HOW_STEPS.map((s, i) => `<li><div class="how-art" aria-hidden="true">${s.art()}</div><div><h3><span class="sr-only">Step ${i + 1}: </span>${s.title}</h3><p>${s.text}</p></div></li>`).join('')}
       </ol>
-      <button class="btn btn-amber" id="howClose">GOT IT</button>
+      <button class="btn btn-amber" id="howClose">LET’S PROWL ▸</button>
     </div>`;
   document.body.appendChild(dlg);
   dlg.showModal();
@@ -109,7 +111,7 @@ async function boot() {
     const res = await fetch('data/puzzles.json?v=' + (window.BUILD || Date.now()));
     puzzles = (await res.json()).puzzles;
   } catch {
-    root.innerHTML = '<main class="screen home"><p class="story-intro">Could not load the puzzles. Serve this folder over http (for example python3 -m http.server) and reload.</p></main>';
+    root.innerHTML = '<main class="screen home"><p class="story-intro">The rooftops didn’t load. Check your connection and refresh.</p></main>';
     return;
   }
   applyReloadRule(puzzles); // refresh rule: reloading mid-question counts as a timeout

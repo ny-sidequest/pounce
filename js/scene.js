@@ -85,14 +85,13 @@ export function createScene(host) {
       <g id="gapGroup">
         <line id="gapLine" x1="0" y1="112" x2="10" y2="112" stroke="${COL.amber}" stroke-width="2" stroke-linecap="round" stroke-dasharray="1 5" opacity=".9"/>
         <circle id="gapTickL" cx="0" cy="112" r="3" fill="${COL.amber}"/><circle id="gapTickR" cx="0" cy="112" r="3" fill="${COL.amber}"/>
-        <text id="gapLabel" class="gap-label" x="0" y="100" text-anchor="middle" fill="${COL.amber}">5.0m gap</text>
+        <text id="gapLabel" class="gap-label" x="0" y="100" text-anchor="middle" fill="${COL.amber}">5.0 m</text>
       </g>
       <rect id="dimmer" x="-700" y="-400" width="2000" height="900" fill="${COL.shadow}" opacity="0"/>
       <ellipse id="thiefLight" cx="${THIEF_X - 14}" cy="${THIEF_Y - 40}" rx="64" ry="60" fill="url(#gHalo)" opacity="0"/>
       <polygon id="spot" points="0,0 0,0 0,0 0,0" fill="url(#gSpot)" opacity="0"/>
       <g id="rigs"></g>
       <g id="fx"></g>
-      <text id="clatter" class="clatter" x="150" y="190" text-anchor="middle" fill="${COL.amber}" opacity="0">CLATTER!</text>
     </svg>
     <div class="lamps" aria-hidden="true">${[0, 1, 2, 3, 4].map((i) => `<span class="lamp" data-i="${i}">${LAMP_SVG}</span>`).join('')}</div>
     <div class="overlay" id="overlay"></div>
@@ -222,7 +221,7 @@ export function createScene(host) {
   }
 
   const setGapRoof = (i, animateIt = false) => {
-    $('#gapLabel').textContent = `${THIEF_ROOF - i}.0m gap`;
+    $('#gapLabel').textContent = `${THIEF_ROOF - i}.0 m`;
     const to = roofRight(i);
     const layout = (startX) => {
       const end = roofX(THIEF_ROOF);
@@ -405,7 +404,6 @@ export function createScene(host) {
     catAnim, catAsync: catAnim, thiefAnim, thiefAsync: thiefAnim, pausePlayers, resumePlayers,
     placeCat, placeThief, catArc, catDrop, thiefRun, walkTo,
     flash, shake, dust, speedLines, maskFly, showMaskRest, lidFly,
-    clatter: (x) => { const ct = $('#clatter'); ct.setAttribute('x', x); ct.setAttribute('y', STREET - 34); rt.run(1300, 'linear', (e, k) => { ct.setAttribute('opacity', k < 0.15 ? k / 0.15 : k > 0.85 ? (1 - k) / 0.15 : 1); ct.setAttribute('y', (STREET - 34 - 8 * (1 - Math.pow(1 - Math.min(1, e * 2), 3))).toFixed(1)); }); },
     hideBin: (bi) => { $(`.bin[data-i="${bi}"]`).style.visibility = 'hidden'; },
     binsShake: () => $('#bins').classList.add('clatter-on'),
     setCatRoof, setGapRoof, hideGap, showGap, showCaught, showOnFoot, showGone, geo,

@@ -75,37 +75,6 @@ test('bands tile 0..10000 with no gaps', () => {
   for (let n = 0; n <= 10000; n += 1) assert.ok(E.bandForScore(n, true).min <= n && n <= E.bandForScore(n, true).max);
 });
 
-test('event line and outcome', () => {
-  assert.equal(E.eventLine(worked()), 'Caught the thief · Speed 3,665 + Pounce 4,000');
-  assert.equal(E.outcomeFor(worked()), 'caught');
-  assert.equal(E.eventLine(scored(100, 'wrong')), 'Pounced on the wrong cat');
-  const timeout = { results: [], pounce: { status: 'wrong', guess: null, points: 0 } };
-  assert.equal(E.eventLine(timeout), 'The thief slipped away'); assert.equal(E.outcomeFor(timeout), 'timeout');
-  assert.equal(E.eventLine(scored(100, 'none')), 'Never leapt'); assert.equal(E.outcomeFor(scored(100, 'none')), 'never');
-});
-
-test('share card matches the worked example exactly', () => {
-  assert.equal(
-    E.shareText(worked(), { betterThanPct: 74 }),
-    'Pounce · Night #1 · Alley genius\n✅✅🐾✅⚡❌⚡\nCaught the thief from 4.0m · 7,665\nBetter than 74% of cats\nWho\'s under the mask? → pounce.io'
-  );
-});
-
-test('share line: wrong pounce, never pounced, fast threshold', () => {
-  let p = play([
-    { q: { status: 'correct', time: 2.9 }, pounce: { correct: false } },
-    { q: { status: 'correct', time: 3.0 } },
-    { q: { status: 'missed' } },
-    { q: { status: 'missed' } },
-    { q: { status: 'missed' } }
-  ]);
-  assert.equal(E.shareLine(p), '⚡🐾❌✅❌❌❌');
-  p = play(Array.from({ length: 5 }, () => ({ q: { status: 'correct', time: 5 } })));
-  p = E.skipFinal(p);
-  assert.equal(E.shareLine(p), '✅✅✅✅✅');
-  assert.match(E.shareText(p), /Stray cat/);
-});
-
 test('normalize', () => {
   assert.equal(E.normalize('  The  Café!! '), 'cafe');
   assert.equal(E.normalize('R.V.'), 'rv');
@@ -184,26 +153,6 @@ test('refresh rule: running question = timed out, open pounce = wrong', () => {
   assert.equal(E.applyReload(p), p);
 });
 
-test('share card: redesign example (7,676) and the three leap lines', () => {
-  const p = play([
-    { q: { status: 'correct', time: 3.2 } },
-    { q: { status: 'correct', time: 2.9 }, pounce: { correct: true } },
-    { q: { status: 'correct', time: 4.1 } },
-    { q: { status: 'missed' } },
-    { q: { status: 'correct', time: 2.8 } }
-  ]);
-  p.puzzleId = 3;
-  assert.equal(E.totals(p).total, 7676);
-  assert.equal(
-    E.shareText(p),
-    'Pounce · Night #3 · Alley genius\n✅⚡🐾✅✅❌⚡\nCaught the thief from 4.0m · 7,676\nWho\'s under the mask? → pounce.io'
-  );
-  const wrong = play(Array.from({ length: 5 }, (_, i) => ({ q: { status: 'correct', time: 5 }, pounce: i === 0 ? { correct: false } : undefined })));
-  assert.match(E.shareText(wrong), /\nThe thief got away · 4,375\n/);
-  const none = E.skipFinal(play(Array.from({ length: 5 }, () => ({ q: { status: 'correct', time: 5 } }))));
-  assert.match(E.shareText(none), /\nNever leapt · 4,375\n/);
-});
-
 test('leap distance and gap', () => {
   assert.deepEqual([5000, 4000, 3000, 2000, 1000].map((v) => E.leapMeters(v)), [5, 4, 3, 2, 1]);
   assert.deepEqual([0, 1, 2, 3, 4, 5].map(E.gapMeters), [6, 5, 4, 3, 2, 1]);
@@ -269,20 +218,44 @@ test('chaseState after a correct pounce, a wrong pounce, a pounce timeout and ne
   assert.equal(E.chaseState(onFootDone), 'on_foot');
 });
 
-test('share card line 3 for caught, got away and never leapt', () => {
-  const caught = play([
-    { q: { status: 'correct', time: 3.2 } },
-    { q: { status: 'correct', time: 2.9 }, pounce: { correct: true } },
-    { q: { status: 'correct', time: 4.1 } },
-    { q: { status: 'missed' } },
-    { q: { status: 'correct', time: 2.8 } }
+
+const trailCase = (steps, pounce) => { let p = play(steps); return p; };
+const nCorrect = (n, k, correct) => play(Array.from({ length: n }, (_, i) => ({ q: { status: 'correct', time: 5 }, pounce: i + 1 === k ? { correct, guess: correct ? 'x' : 'y' } : undefined })));
+
+test('trail line: all ten cases', () => {
+  const caught = (k) => E.trailLine(nCorrect(5, k, true));
+  const wrong = (k) => E.trailLine(nCorrect(5, k, false));
+  assert.equal(caught(1), '🐈‍⬛⬛⬛⬛⬛🥷');
+  assert.equal(caught(2), '🐾🐈‍⬛⬛⬛⬛🥷');
+  assert.equal(caught(3), '🐾🐾🐈‍⬛⬛⬛🥷');
+  assert.equal(caught(4), '🐾🐾🐾🐈‍⬛⬛🥷');
+  assert.equal(caught(5), '🐾🐾🐾🐾🐈‍⬛🥷');
+  assert.equal(wrong(1), '🗑️⬛⬛⬛⬛💨');
+  assert.equal(wrong(3), '🐾🐾🗑️⬛⬛💨');
+  assert.equal(wrong(5), '🐾🐾🐾🐾🗑️💨');
+  const timeout = play([{ q: { status: 'correct', time: 5 } }, { q: { status: 'correct', time: 5 }, pounce: { correct: false, guess: null } }, ...Array.from({ length: 3 }, () => ({ q: { status: 'correct', time: 5 } }))]);
+  assert.equal(E.trailLine(timeout), '🐾🗑️⬛⬛⬛💨');
+  const never = E.skipFinal(play(Array.from({ length: 5 }, () => ({ q: { status: 'correct', time: 5 } }))));
+  assert.equal(E.trailLine(never), '🐾🐾🐾🐾🐾💨');
+});
+
+test('share text: five lines', () => {
+  const p = play([
+    { q: { status: 'correct', time: 3.2 } }, { q: { status: 'correct', time: 6 }, pounce: { correct: true } },
+    { q: { status: 'correct', time: 1.8 } }, { q: { status: 'missed' } }, { q: { status: 'correct', time: 2.4 } }
   ]);
-  assert.equal(E.shareText(caught).split('\n')[2], 'Caught the thief from 4.0m · 7,676');
-  // worked example: got away, speed 4,409 (wrong pounce after clue 1)
-  const away = play([4.6, 4.7, 4.8, 4.9, 4.7].map((time, i) => ({ q: { status: 'correct', time }, pounce: i === 0 ? { correct: false } : undefined })));
-  assert.equal(E.totals(away).total, 4409);
-  assert.equal(E.shareText(away).split('\n')[2], 'The thief got away · 4,409');
-  const never = E.skipFinal(play([4.6, 4.7, 4.8, 4.9, 4.7].map((time) => ({ q: { status: 'correct', time } }))));
-  assert.equal(E.shareText(never).split('\n')[2], 'Never leapt · 4,409');
-  assert.equal(E.shareText(never).split('\n')[3], "Who's under the mask? → pounce.io");
+  assert.equal(E.shareText(p), ['Pounce #1 🐈‍⬛', '7,665/10,000 · Alley genius', '🐾🐈‍⬛⬛⬛⬛🥷', '✅✅✅❌✅', 'ny-sidequest.github.io/pounce'].join('\n'));
+  assert.equal(E.shareText(p, 'example.com/p').split('\n')[4], 'example.com/p');
+  assert.ok(!E.shareText(p).includes('🥷🏻') && !/[\u{1F3FB}-\u{1F3FF}]/u.test(E.shareText(p)));
+});
+
+test('event lines', () => {
+  const p = nCorrect(5, 2, true);
+  assert.equal(E.eventLine(p), 'Caught the thief · Speed 4,375 + Pounce 4,000');
+  const wrong = nCorrect(5, 2, false);
+  assert.equal(E.eventLine(wrong), 'Named the wrong thief · Speed 4,375');
+  const timeout = { results: [{ points: 100 }], pounce: { status: 'wrong', guess: null, points: 0 } };
+  assert.equal(E.eventLine(timeout), 'Froze mid-pounce · Speed 100');
+  const never = { results: [{ points: 100 }], pounce: { status: 'none' } };
+  assert.equal(E.eventLine(never), 'Never pounced · Speed 100');
 });

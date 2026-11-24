@@ -156,7 +156,6 @@ export function fallSequence(state = {}) {
         scene.dust(bin.x + 20, bin.y + 36, 14);
         scene.lidFly(state.bi);
         scene.binsShake();
-        scene.clatter(bin.x + 29);
         sfx?.clatter();
         setTimeout(() => scene.resumePlayers(), T.impact);
       }
