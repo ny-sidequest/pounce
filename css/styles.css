@@ -526,3 +526,10 @@ input:focus-visible { outline-offset: 0; }
   .scene.quake { animation: none !important; }
   @keyframes fade { from { opacity: 0; } }
 }
+
+/* ---- launch polish ---- */
+.z0 { font-family: var(--ui); font-weight: 700; }
+.how-intro { font-family: var(--long); font-size: 15px; line-height: 1.45; color: var(--muted); text-align: center; margin: -4px 0 12px; }
+.copy-link { align-self: center; }
+.res-share { gap: 8px; }
+.res-better { text-wrap: balance; }

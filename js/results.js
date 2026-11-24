@@ -1,6 +1,6 @@
 // Results: score and curve, cat ranks, the trail. Built from design/Main.dc.html.
 // Stats come from js/stats.js (mock today, the backend later): the page renders at once with placeholders, then fills in.
-import { totals, titleFor, eventLine, shareText, formatNumber as fmt, leapMeters, BANDS } from './engine.js';
+import { totals, titleFor, eventLine, shareText, formatNumber as fmt, leapMeters, BANDS, outcomeFor } from './engine.js';
 import { CONFIG } from './config.js';
 import { numHTML } from './num.js';
 import { escapeHTML } from './scene.js';
