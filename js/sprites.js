@@ -221,7 +221,12 @@ export class SpritePlayer {
 export function defineSprite(id, size, palette, anims) {
   const out = {};
   for (const [name, a] of Object.entries(anims)) {
-    out[name] = { fps: a.fps, loop: a.loop, frames: a.frames.map((f) => (f instanceof Grid ? f.rows() : f)) };
+    const toRows = (frames) => frames.map((f) => (f instanceof Grid ? f.rows() : f));
+    if (typeof a.frames === 'function') {
+      // lazy: hi-res frames are generated the first time an animation is used
+      let cache = null;
+      out[name] = { fps: a.fps, loop: a.loop, get frames() { return cache || (cache = toRows(a.frames())); } };
+    } else out[name] = { fps: a.fps, loop: a.loop, frames: toRows(a.frames) };
   }
   return { id, size, palette, anims: out, blink: !!out.idle_blink };
 }
